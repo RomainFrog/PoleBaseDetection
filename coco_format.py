@@ -1,6 +1,7 @@
 import csv
 import glob
 import os
+import shutil
 
 from PIL import Image
 from sahi.utils.coco import Coco, CocoAnnotation, CocoCategory, CocoImage
@@ -12,6 +13,11 @@ data_dir = "data_manual_annotations"
 anotation_dir = "annotations_phx"
 img_dir = "images"
 
+
+data_train_path= os.path.join(data_dir, img_dir,"train")
+data_val_path=os.path.join(data_dir, img_dir,"val")
+os.makedirs(data_train_path, exist_ok=True)
+os.makedirs(data_val_path, exist_ok=True)
 
 # Init coco object
 coco_train = Coco()
@@ -42,9 +48,15 @@ for csv_file in csv_files:
         name_img = os.path.basename(csv_file)[:-3] + "jpg"
         filename = os.path.join(data_dir, img_dir, name_img)
 
+        
         height, width = Image.open(filename).size
+        if count <= num_train_data:
+            path=f"{data_dir}/{img_dir}/train/{name_img}"
+        else:
+            path=f"{data_dir}/{img_dir}/val/{name_img}"
+        
         coco_image = CocoImage(
-            file_name=f"{data_dir}/{img_dir}/{name_img}", height=height, width=width
+            file_name=path, height=height, width=width
         )
 
         for row in reader:
@@ -59,8 +71,10 @@ for csv_file in csv_files:
 
     if count <= num_train_data:
         coco_train.add_image(coco_image)
+        shutil.copy2(filename, data_train_path)
     else:
         coco_val.add_image(coco_image)
+        shutil.copy2(filename, data_val_path)
     count += 1
 
 
