@@ -51,9 +51,9 @@ for csv_file in csv_files:
         
         height, width = Image.open(filename).size
         if count <= num_train_data:
-            path=f"/train/{name_img}"
+            path=f"train/{name_img}"
         else:
-            path=f"/val/{name_img}"
+            path=f"val/{name_img}"
         
         coco_image = CocoImage(
             file_name=path, height=height, width=width
