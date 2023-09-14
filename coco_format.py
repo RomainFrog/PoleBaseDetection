@@ -7,7 +7,7 @@ from PIL import Image
 from sahi.utils.coco import Coco, CocoAnnotation, CocoCategory, CocoImage
 from sahi.utils.file import save_json
 
-box_w, box_h = 100, 100
+box_w, box_h = 200, 200
 train_per = 0.8
 data_dir = "data_manual_annotations"
 anotation_dir = "annotations_phx"
@@ -78,5 +78,5 @@ for csv_file in csv_files:
     count += 1
 
 
-save_json(data=coco_train.json, save_path="train.json")
-save_json(data=coco_val.json, save_path="val.json")
+save_json(data=coco_train.json, save_path="data_manual_annotations/train.json")
+save_json(data=coco_val.json, save_path="data_manual_annotations/val.json")
