@@ -7,7 +7,7 @@ from PIL import Image
 from sahi.utils.coco import Coco, CocoAnnotation, CocoCategory, CocoImage
 from sahi.utils.file import save_json
 
-box_w, box_h = 200, 200
+box_w, box_h = 100, 100
 train_per = 0.8
 data_dir = "data_manual_annotations"
 anotation_dir = "annotations_phx"
@@ -64,7 +64,7 @@ for csv_file in csv_files:
             y = int(float(row["y"]))
 
             xtl = max(0, x - box_w // 2)
-            ytl = max(0, y + box_h // 2)
+            ytl = max(0, y - box_h // 2)
             coco_image.add_annotation(
                 CocoAnnotation(bbox=[xtl, ytl, box_w, box_h], category_id=0, category_name="pole")
             )

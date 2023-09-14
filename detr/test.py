@@ -203,6 +203,9 @@ def infer(images_path, model, postprocessors, device, output_path):
                 ])
             bbox = bbox.reshape((4, 2))
             cv2.polylines(img, [bbox], True, (0, 255, 0), 2)
+            # Display a RED dot in the center of the bounding box
+            center = (int((bbox[0][0] + bbox[2][0]) / 2), int((bbox[0][1] + bbox[2][1]) / 2))
+            cv2.circle(img, center, 2, (0, 0, 255), 2)
 
         # img_save_path = os.path.join(output_path, filename)
         # cv2.imwrite(img_save_path, img)
