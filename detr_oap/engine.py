@@ -110,8 +110,9 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
             target_sizes = torch.stack([t["size"] for t in targets], dim=0)
             results = postprocessors['segm'](results, outputs, orig_target_sizes, target_sizes)
         res = {target['image_id'].item(): output for target, output in zip(targets, results)}
-        if coco_evaluator is not None:
-            coco_evaluator.update(res)
+        # print(res)
+        # if coco_evaluator is not None:
+        #     coco_evaluator.update(res)
 
         if panoptic_evaluator is not None:
             res_pano = postprocessors["panoptic"](outputs, target_sizes, orig_target_sizes)
@@ -126,8 +127,8 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
     print("Averaged stats:", metric_logger)
-    if coco_evaluator is not None:
-        coco_evaluator.synchronize_between_processes()
+    # if coco_evaluator is not None:
+    #    coco_evaluator.synchronize_between_processes()
     if panoptic_evaluator is not None:
         panoptic_evaluator.synchronize_between_processes()
 

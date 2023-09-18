@@ -178,6 +178,8 @@ def main(args):
         del checkpoint['model']['class_embed.weight']
         del checkpoint['model']['class_embed.bias']
         del checkpoint['model']['query_embed.weight']
+        del checkpoint['model']['bbox_embed.layers.2.weight']
+        del checkpoint['model']['bbox_embed.layers.2.bias']
         
         model_without_ddp.load_state_dict(checkpoint['model'], strict=False)
         if not args.eval and 'optimizer' in checkpoint and 'lr_scheduler' in checkpoint and 'epoch' in checkpoint:
@@ -214,7 +216,8 @@ def main(args):
                     'epoch': epoch,
                     'args': args,
                 }, checkpoint_path)
-
+        """
+        
         test_stats, coco_evaluator = evaluate(
             model, criterion, postprocessors, data_loader_val, base_ds, device, args.output_dir
         )
@@ -223,10 +226,10 @@ def main(args):
                      **{f'test_{k}': v for k, v in test_stats.items()},
                      'epoch': epoch,
                      'n_parameters': n_parameters}
-
+        
         if args.output_dir and utils.is_main_process():
-            with (output_dir / "log.txt").open("a") as f:
-                f.write(json.dumps(log_stats) + "\n")
+            # with (output_dir / "log.txt").open("a") as f:
+            #     f.write(json.dumps(log_stats) + "\n")
 
             # for evaluation logs
             if coco_evaluator is not None:
@@ -238,7 +241,8 @@ def main(args):
                     for name in filenames:
                         torch.save(coco_evaluator.coco_eval["bbox"].eval,
                                    output_dir / "eval" / name)
-
+            """
+        
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print('Training time {}'.format(total_time_str))

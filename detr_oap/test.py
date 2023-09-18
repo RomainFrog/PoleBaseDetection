@@ -31,10 +31,7 @@ def box_cxcywh_to_xyxy(x):
 
 def rescale_bboxes(out_bbox, size):
     img_w, img_h = size
-    b = box_cxcywh_to_xyxy(out_bbox)
-    b = b * torch.tensor([img_w, img_h,
-                          img_w, img_h
-                          ], dtype=torch.float32)
+    b = out_bbox * torch.tensor([img_w, img_h], dtype=torch.float32)
     return b
 
 def get_images(in_path):
@@ -98,7 +95,7 @@ def get_args_parser():
     # * Matcher
     parser.add_argument('--set_cost_class', default=1, type=float,
                         help="Class coefficient in the matching cost")
-    parser.add_argument('--set_cost_bbox', default=5, type=float,
+    parser.add_argument('--set_cost_dist', default=5, type=float,
                         help="L1 box coefficient in the matching cost")
     parser.add_argument('--set_cost_giou', default=2, type=float,
                         help="giou box coefficient in the matching cost")
@@ -165,6 +162,7 @@ def infer(images_path, model, postprocessors, device, output_path):
 
         start_t = time.perf_counter()
         outputs = model(image)
+        print(outputs)
         end_t = time.perf_counter()
 
         outputs["pred_logits"] = outputs["pred_logits"].cpu()
@@ -174,7 +172,9 @@ def infer(images_path, model, postprocessors, device, output_path):
         # keep = probas.max(-1).values > 0.85
         keep = probas.max(-1).values > args.thresh
 
+        # Scale image to the same size as the original
         bboxes_scaled = rescale_bboxes(outputs['pred_boxes'][0, keep], orig_image.size)
+        print(bboxes_scaled)
         probas = probas[keep].cpu().data.numpy()
 
         for hook in hooks:
@@ -195,17 +195,7 @@ def infer(images_path, model, postprocessors, device, output_path):
         for idx, box in enumerate(bboxes_scaled):
             bbox = box.cpu().data.numpy()
             bbox = bbox.astype(np.int32)
-            bbox = np.array([
-                [bbox[0], bbox[1]],
-                [bbox[2], bbox[1]],
-                [bbox[2], bbox[3]],
-                [bbox[0], bbox[3]],
-                ])
-            bbox = bbox.reshape((4, 2))
-            cv2.polylines(img, [bbox], True, (0, 255, 0), 2)
-            # Display a RED dot in the center of the bounding box
-            center = (int((bbox[0][0] + bbox[2][0]) / 2), int((bbox[0][1] + bbox[2][1]) / 2))
-            cv2.circle(img, center, 2, (0, 0, 255), 2)
+            cv2.circle(img, (bbox[0], bbox[1]), 2, (0, 0, 255), 2)
 
         # img_save_path = os.path.join(output_path, filename)
         # cv2.imwrite(img_save_path, img)

@@ -163,8 +163,8 @@ class CocoEvaluator(object):
 
 
 def convert_to_xywh(boxes):
-    xmin, ymin, xmax, ymax = boxes.unbind(1)
-    return torch.stack((xmin, ymin, xmax - xmin, ymax - ymin), dim=1)
+    x, y = boxes.unbind(1)
+    return torch.stack((x,y), dim=1)
 
 
 def merge(img_ids, eval_imgs):

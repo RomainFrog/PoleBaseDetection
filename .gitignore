@@ -1,4 +1,5 @@
 # python gitignore
 #
-
+*.pth
+__pycache__/
 # Compiled source #
