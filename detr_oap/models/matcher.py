@@ -64,8 +64,9 @@ class HungarianMatcher(nn.Module):
         # The 1 is a constant that doesn't change the matching, it can be ommitted.
         cost_class = -out_prob[:, tgt_ids]
 
-        # Compute the L1 cost between boxes
-        cost_dist = torch.cdist(out_point, tgt_point, p=1)
+        # Compute the L1 cost between points
+        # Get rid of the last 2 coordinates (z, w)
+        cost_dist = torch.cdist(out_point[:,:2], tgt_point[:,:2], p=1)
 
 
         # Final cost matrix
@@ -78,4 +79,4 @@ class HungarianMatcher(nn.Module):
 
 
 def build_matcher(args):
-    return HungarianMatcher(cost_class=args.set_cost_class, cost_bbox=args.set_cost_dist)
+    return HungarianMatcher(cost_class=args.set_cost_class, cost_dist=args.set_cost_dist)
