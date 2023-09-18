@@ -156,7 +156,7 @@ class SetCriterion(nn.Module):
         losses = {}
         losses['loss_bbox'] = loss_bbox.sum() / num_boxes
 
-        # giou loss not needed for point prediction
+        #  loss not needed for point prediction
         # loss_giou = 1 - torch.diag(box_ops.generalized_box_iou(
         #     box_ops.box_cxcywh_to_xyxy(src_boxes),
         #     box_ops.box_cxcywh_to_xyxy(target_boxes)))
@@ -277,13 +277,14 @@ class PostProcess(nn.Module):
         scores, labels = prob[..., :-1].max(-1)
 
         # convert to [x0, y0, x1, y1] format
-        boxes = box_ops.box_cxcywh_to_xyxy(out_bbox)
+        # boxes = box_ops.box_cxcywh_to_xyxy(out_bbox)
+        points = out_bbox[:,:2]
         # and from relative [0, 1] to absolute [0, height] coordinates
         img_h, img_w = target_sizes.unbind(1)
         scale_fct = torch.stack([img_w, img_h, img_w, img_h], dim=1)
-        boxes = boxes * scale_fct[:, None, :]
+        points = points * scale_fct[:, None, :]
 
-        results = [{'scores': s, 'labels': l, 'boxes': b} for s, l, b in zip(scores, labels, boxes)]
+        results = [{'scores': s, 'labels': l, 'boxes': b} for s, l, b in zip(scores, labels, points)]
 
         return results
 
