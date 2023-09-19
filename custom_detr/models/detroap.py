@@ -8,7 +8,6 @@ from torch import nn
 from torchvision.models import resnet50
 import torchvision.transforms as T
 import torch.nn.functional as F
-torch.set_grad_enabled(False)
 
 
 # COCO classes
@@ -106,13 +105,10 @@ class DETROAP(nn.Module):
                 'pred_boxes': self.point_embed(h).sigmoid()}
     
 
-
-detr = DETROAP(num_classes=91)
-state_dict = torch.hub.load_state_dict_from_url(
-    url='https://dl.fbaipublicfiles.com/detr/detr_demo-da2a99e9.pth',
-    map_location='cpu', check_hash=True)
-detr.load_state_dict(state_dict)
-detr.eval()
-     
-
-     
+def build_model(args):
+    num_classes = 1 # only one class: pole
+    model = DETROAP(num_classes=num_classes, hidden_dim=args.hidden_dim, 
+                    nheads=args.nheads, num_encoder_layers=args.enc_layers, 
+                    num_decoder_layers=args.dec_layers)
+    
+    return model
