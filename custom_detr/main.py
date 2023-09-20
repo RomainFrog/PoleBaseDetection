@@ -18,6 +18,7 @@ from torch.utils.data import DataLoader, DistributedSampler
 
 from models.detroap import build_model
 from datasets import build_dataset
+from engine import train_one_epoch, evaluate
 
 
 def get_args_parser():
@@ -116,6 +117,8 @@ def main(args):
     dataset_train = build_dataset(image_set='train', args=args)
     dataset_val = build_dataset(image_set='val', args=args)
     # TODO: implement samplers, batch_samplers and data_loaders
+    data_loader_train = None
+    data_loader_test = None
     print("Dataset successfully built.")
 
     # Load checkpoint if asked to resume
@@ -142,8 +145,24 @@ def main(args):
     print("Starting training...")
     start_time = time.time()
 
-    # TODO: implement training loop
+    # Training loop
+    for epoch in range(args.start_epoch, args.epochs):
+        # Train onche epoch
+        train_one_epoch(model, optimizer, data_loader_train, device, epoch, args.clip_max_norm)
+        # update learning rate
+        lr_scheduler.step()
+        test_stats = evaluate(model, data_loader_test, device=device)
+        # TODO: Log stats in a file
 
+    # Save model checkpoint.pth
+    checkpoint = {
+        'model': model.state_dict(),
+        'optimizer': optimizer.state_dict(),
+        'lr_scheduler': lr_scheduler.state_dict(),
+        'epoch': epoch,
+    }
+    torch.save(checkpoint, output_dir / 'checkpoint.pth')
+    
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print('Training time {}'.format(total_time_str))
