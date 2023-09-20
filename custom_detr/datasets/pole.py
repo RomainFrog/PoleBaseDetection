@@ -7,7 +7,6 @@ import numpy as np
 from PIL import Image
 from torchvision import transforms as T
 
-
 # standard PyTorch mean-std input image normalization
 transform = T.Compose([
     T.Resize(800),
@@ -38,18 +37,24 @@ class PoleDataset(torch.utils.data.Dataset):
         basename = os.path.basename(img_name)
         # read annotations from csv file
         csv_name = os.path.join(self.annotations_dir, basename.replace('.jpg', '.csv'))
-        annotations =np.loadtxt(csv_name, delimiter=',', skiprows=1, usecols=(1,2))
+        annotations = np.loadtxt(csv_name, delimiter=',', skiprows=1, usecols=(1,2))
+        # if there is only one annotation, convert it to a 2D array
+        if len(annotations.shape) == 1:
+            annotations = annotations.reshape(1,2)
+        
         # create empty tensor of size (100,2)
         coords = torch.zeros((100,2))
-        # fill in the tensor with the coordinates
-        coords[0,:] = torch.tensor(annotations[1:2,0])
+
+        # fill in the tensor with the annotations
+        if annotations.shape[0] != 0:
+            coords[:annotations.shape[0], :] = torch.tensor(annotations)
 
         if self.transform:
             image = self.transform(image)
 
         # convert image to tensor
         image = torch.tensor(np.array(image))
-        return image, annotations
+        return image, coords
 
 
 
