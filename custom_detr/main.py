@@ -20,6 +20,8 @@ from datasets import build_dataset
 from engine import train_one_epoch, evaluate
 from models import build_model
 import util.misc as utils
+import warnings
+warnings.filterwarnings("ignore")
 
 
 def get_args_parser():
@@ -85,6 +87,7 @@ def get_args_parser():
     return parser
 
 
+
 def main(args):
     """ Main function for model training."""
     device = torch.device(args.device)
@@ -120,9 +123,19 @@ def main(args):
     assert args.data_path is not None, "You must provide a data path"
     dataset_train = build_dataset(image_set='train', args=args)
     dataset_val = build_dataset(image_set='val', args=args)
-    # TODO: implement samplers, batch_samplers and data_loaders
-    data_loader_train = DataLoader(dataset_train, batch_size=args.batch_size, shuffle=True)
-    data_loader_test = DataLoader(dataset_val, batch_size=args.batch_size, shuffle=True)
+
+
+    sampler_train = torch.utils.data.RandomSampler(dataset_train)
+    sampler_val = torch.utils.data.SequentialSampler(dataset_val)
+
+    batch_sampler_train = torch.utils.data.BatchSampler(sampler_train, args.batch_size, drop_last=True)
+
+    data_loader_train = DataLoader(dataset_train, batch_sampler=batch_sampler_train, num_workers=args.num_workers)
+    data_loader_val = DataLoader(dataset_val, args.batch_size, sampler=sampler_val,
+                                 drop_last=False, num_workers=args.num_workers)
+
+
+
     print("Dataset successfully built.")
 
     # Load checkpoint if asked to resume
@@ -156,7 +169,7 @@ def main(args):
         train_one_epoch(model, optimizer, data_loader_train, device, epoch, args.clip_max_norm)
         # update learning rate
         lr_scheduler.step()
-        test_stats = evaluate(model, data_loader_test, device=device)
+        test_stats = evaluate(model, data_loader_val, device=device)
         # TODO: Log stats in a file
 
     # Save model checkpoint.pth

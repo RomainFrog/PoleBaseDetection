@@ -33,6 +33,7 @@ anotation_path = os.path.join(data_dir, anotation_dir, "*.csv")
 csv_files = glob.glob(anotation_path)
 
 num_train_data = int(len(csv_files) * train_per)
+print(num_train_data)
 count = 1
 
 # Loop through each CSV file and append its data to the merged_data DataFrame
@@ -72,6 +73,7 @@ for csv_file in csv_files:
     if count <= num_train_data:
         coco_train.add_image(coco_image)
         shutil.copy2(filename, data_train_path)
+        print(f"train: {count}")
     else:
         coco_val.add_image(coco_image)
         shutil.copy2(filename, data_val_path)

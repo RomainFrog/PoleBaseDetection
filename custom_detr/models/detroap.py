@@ -55,8 +55,10 @@ class DETROAP(nn.Module):
 
         # prediction heads, one extra class for predicting non-empty slots
         # note that in baseline DETR linear_bbox layer is 3-layer MLP
-        self.point_embed = MLP(hidden_dim, hidden_dim, 2, 3)
-        self.class_embed = nn.Linear(hidden_dim, num_classes + 1)
+        # self.point_embed = MLP(hidden_dim, hidden_dim, 2, 3)
+        # self.class_embed = nn.Linear(hidden_dim, num_classes + 1)
+        self.linear_class = nn.Linear(hidden_dim, num_classes + 1)
+        self.linear_point = nn.Linear(hidden_dim, 4)
 
         # output positional encodings (object queries)
         self.query_pos = nn.Parameter(torch.rand(100, hidden_dim))
@@ -78,23 +80,34 @@ class DETROAP(nn.Module):
         x = self.backbone.layer3(x)
         x = self.backbone.layer4(x)
 
+
         # convert from 2048 to 256 feature planes for the transformer
         h = self.conv(x)
 
+
+        
+
         # construct positional encodings
-        H, W = h.shape[-2:]
+        bs, _, H, W = h.shape[-4:]
         pos = torch.cat([
             self.col_embed[:W].unsqueeze(0).repeat(H, 1, 1),
             self.row_embed[:H].unsqueeze(1).repeat(1, W, 1),
         ], dim=-1).flatten(0, 1).unsqueeze(1)
+        pos = pos.expand(pos.shape[0], bs, pos.shape[-1])
+        # upscale pos to match batch size
+        print(f"{pos.shape=}")
+
 
         # propagate through the transformer
-        h = self.transformer(pos + 0.1 * h.flatten(2).permute(2, 0, 1),
-                             self.query_pos.unsqueeze(1)).transpose(0, 1)
+        print(f"{h.flatten(2).permute(2, 0, 1).shape=}")
+        print(f"{pos.shape=}")
+        print(f"{self.query_pos.unsqueeze(1).transpose(0,1).shape=}")
+        # h = self.transformer(pos + 0.1 * h.flatten(2).permute(2, 0, 1), self.query_pos.unsqueeze(1)).transpose(0, 1)
+        h = self.transformer(pos + 0.1 * h.flatten(2).permute(2, 0, 1), self.query_pos.unsqueeze(1).expand(bs,100,256).transpose()).transpose(0, 1)
         
         # finally project transformer outputs to class labels and bounding boxes
-        return {'pred_logits': self.class_embed(h), 
-                'pred_boxes': self.point_embed(h).sigmoid()}
+        return {'pred_logits': self.linear_class(h), 
+                'pred_points': self.linear_point(h).sigmoid()}
     
 
 def build_DETR(args):

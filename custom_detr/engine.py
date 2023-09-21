@@ -13,9 +13,10 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
 
     for samples, targets in data_loader:
         samples = samples.to(device)
+        print(samples.shape)
         outputs = model(samples)
-        print(outputs)
-        print(targets)
+        print(f"{outputs['pred_logits'].shape}")
+        print(f"{outputs['pred_points'].shape}")
 
 
 @torch.no_grad()
