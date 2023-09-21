@@ -59,4 +59,4 @@ class PoleDataset(torch.utils.data.Dataset):
 
 
 def build_pole(image_set, args):
-    pass
+    return PoleDataset(args.data_path, image_set)

@@ -16,9 +16,10 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader, DistributedSampler
 
-from models.detroap import build_model
 from datasets import build_dataset
 from engine import train_one_epoch, evaluate
+from models import build_model
+import util.misc as utils
 
 
 def get_args_parser():
@@ -29,6 +30,8 @@ def get_args_parser():
     parser.add_argument('--weight_decay', default=1e-4, type=float)
     parser.add_argument('--epochs', default=300, type=int)
     parser.add_argument('--lr_drop', default=200, type=int)
+    parser.add_argument('--clip_max_norm', default=0.1, type=float,
+                        help='gradient clipping max norm')
 
     # Backbone
     parser.add_argument('--backbone', default='resnet50', type=str, choices=['resnet50', 'resnet101'])
@@ -114,11 +117,12 @@ def main(args):
     print("Optimizer and learning rate scheduler successfully set up.")
 
     # Set up data loader
+    assert args.data_path is not None, "You must provide a data path"
     dataset_train = build_dataset(image_set='train', args=args)
     dataset_val = build_dataset(image_set='val', args=args)
     # TODO: implement samplers, batch_samplers and data_loaders
-    data_loader_train = None
-    data_loader_test = None
+    data_loader_train = DataLoader(dataset_train, batch_size=args.batch_size, shuffle=True)
+    data_loader_test = DataLoader(dataset_val, batch_size=args.batch_size, shuffle=True)
     print("Dataset successfully built.")
 
     # Load checkpoint if asked to resume
@@ -146,6 +150,7 @@ def main(args):
     start_time = time.time()
 
     # Training loop
+    
     for epoch in range(args.start_epoch, args.epochs):
         # Train onche epoch
         train_one_epoch(model, optimizer, data_loader_train, device, epoch, args.clip_max_norm)
@@ -162,7 +167,7 @@ def main(args):
         'epoch': epoch,
     }
     torch.save(checkpoint, output_dir / 'checkpoint.pth')
-    
+
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print('Training time {}'.format(total_time_str))

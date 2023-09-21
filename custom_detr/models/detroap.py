@@ -97,7 +97,7 @@ class DETROAP(nn.Module):
                 'pred_boxes': self.point_embed(h).sigmoid()}
     
 
-def build_model(args):
+def build_DETR(args):
     num_classes = 1 # only one class: pole
     model = DETROAP(num_classes=num_classes, hidden_dim=args.hidden_dim, 
                     nheads=args.nheads, num_encoder_layers=args.enc_layers, 

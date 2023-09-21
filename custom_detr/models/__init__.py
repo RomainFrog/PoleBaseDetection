@@ -1,5 +1,5 @@
-from .detroap import build_model
+from .detroap import build_DETR
 
 
 def build_model(args):
-    return build_model(args)
+    return build_DETR(args)
