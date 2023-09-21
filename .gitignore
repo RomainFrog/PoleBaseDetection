@@ -3,3 +3,5 @@
 *.pth
 __pycache__/
 # Compiled source #
+
+camera_pole_detection
