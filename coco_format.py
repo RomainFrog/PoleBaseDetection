@@ -2,11 +2,12 @@ import csv
 import glob
 import os
 import shutil
-
+import random
 from PIL import Image
 from sahi.utils.coco import Coco, CocoAnnotation, CocoCategory, CocoImage
 from sahi.utils.file import save_json
 
+random.seed(42)
 box_w, box_h = 200, 200
 train_per = 0.8
 data_dir = "data_manual_annotations"
@@ -31,6 +32,7 @@ coco_val.add_category(CocoCategory(id=0, name="pole"))
 anotation_path = os.path.join(data_dir, anotation_dir, "*.csv")
 
 csv_files = glob.glob(anotation_path)
+random.shuffle(csv_files)
 
 num_train_data = int(len(csv_files) * train_per)
 print(num_train_data)

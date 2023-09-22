@@ -6,6 +6,9 @@ import shutil
 from PIL import Image
 from sahi.utils.coco import Coco, CocoAnnotation, CocoCategory, CocoImage
 from sahi.utils.file import save_json
+import random
+
+random.seed(42)
 
 box_w, box_h = 200, 200
 train_per = 0.8
@@ -31,9 +34,10 @@ coco_val.add_category(CocoCategory(id=0, name="pole"))
 anotation_path = os.path.join(data_dir, anotation_dir, "*.csv")
 
 csv_files = glob.glob(anotation_path)
+# let's shuffle the csv files
+random.shuffle(csv_files)
 
 num_train_data = int(len(csv_files) * train_per)
-print(num_train_data)
 count = 1
 
 # Loop through each CSV file and append its data to the merged_data DataFrame
@@ -64,8 +68,6 @@ for csv_file in csv_files:
             x = int(float(row["x"]))
             y = int(float(row["y"]))
 
-            xtl = max(0, x - box_w // 2)
-            ytl = max(0, y - box_h // 2)
             coco_image.add_annotation(
                 CocoAnnotation(bbox=[x, y, 1, 1], category_id=0, category_name="pole")
             )

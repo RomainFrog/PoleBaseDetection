@@ -9,6 +9,10 @@ from torchvision.models import resnet50
 import torchvision.transforms as T
 import torch.nn.functional as F
 
+from util.misc import (NestedTensor, nested_tensor_from_tensor_list,
+                       accuracy, get_world_size, interpolate,
+                       is_dist_avail_and_initialized)
+
 
 
 class MLP(nn.Module):
@@ -38,51 +42,30 @@ class DETROAP(nn.Module):
     The model achieves ~40 AP on COCO val5k and runs at ~28 FPS on Tesla V100.
     Only batch size 1 supported.
     """
-    def __init__(self, num_classes, hidden_dim=256, nheads=8,
-                 num_encoder_layers=6, num_decoder_layers=6):
+    def __init__(self, backbone, transformer, num_classes=1, num_queries=100, aux_loss=False):
         super().__init__()
+        self.backbone = backbone
+        hidden_dim = transformer.d_model
+        self.input_proj = nn.Conv2d(backbone.num_channels, hidden_dim, kernel_size=1)
+        self.transformer = transformer
+        self.num_queries = num_queries
+        self.query_embded = nn.Embedding(num_queries, hidden_dim)
+        self.class_embed = nn.Linear(hidden_dim, num_classes + 1)
+        self.points_embed = MLP(hidden_dim, hidden_dim, 2, 3)
+        self.aux_loss = aux_loss
 
-        # create ResNet-50 backbone
-        self.backbone = resnet50()
-        del self.backbone.fc
+    def forward(self, inputs: NestedTensor):
+    
+        # Check the data type of inputs and convert to NestedTensor if necessary
+        if isinstance(samples, (list, torch.Tensor)):
+            samples = nested_tensor_from_tensor_list(samples)
 
-        # create conversion layer
-        self.conv = nn.Conv2d(2048, hidden_dim, 1)
+        # Get the features from the backbone (a.k.a. Joiner of features and position)
+        features, pos = self.backbone(samples)
 
-        # create a default PyTorch transformer
-        self.transformer = nn.Transformer(
-            hidden_dim, nheads, num_encoder_layers, num_decoder_layers)
-
-        # prediction heads, one extra class for predicting non-empty slots
-        # note that in baseline DETR linear_bbox layer is 3-layer MLP
-        # self.point_embed = MLP(hidden_dim, hidden_dim, 2, 3)
-        # self.class_embed = nn.Linear(hidden_dim, num_classes + 1)
-        self.linear_class = nn.Linear(hidden_dim, num_classes + 1)
-        self.linear_point = nn.Linear(hidden_dim, 4)
-
-        # output positional encodings (object queries)
-        self.query_pos = nn.Parameter(torch.rand(100, hidden_dim))
-
-        # spatial positional encodings
-        # note that in baseline DETR we use sine positional encodings
-        self.row_embed = nn.Parameter(torch.rand(50, hidden_dim // 2))
-        self.col_embed = nn.Parameter(torch.rand(50, hidden_dim // 2))
-
-    def forward(self, inputs):
-        # propagate inputs through ResNet-50 up to avg-pool layer
-        x = self.backbone.conv1(inputs)
-        x = self.backbone.bn1(x)
-        x = self.backbone.relu(x)
-        x = self.backbone.maxpool(x)
-
-        x = self.backbone.layer1(x)
-        x = self.backbone.layer2(x)
-        x = self.backbone.layer3(x)
-        x = self.backbone.layer4(x)
-
-
-        # convert from 2048 to 256 feature planes for the transformer
-        h = self.conv(x)
+        src, mask = features[-1].decompose()
+        assert mask is not None, 'mask should not be None'
+        hs = self.transformer(self.input_proj(src), mask, self.query_embed.weight, pos[-1])[0]
 
 
         
