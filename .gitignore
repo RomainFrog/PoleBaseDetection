@@ -1,5 +1,6 @@
 # python gitignore
 #
+.ipynb_checkpoints/
 *.pth
 __pycache__/
 # Compiled source #
