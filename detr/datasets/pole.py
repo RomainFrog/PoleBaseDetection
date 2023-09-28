@@ -11,7 +11,7 @@ import torch.utils.data
 import torchvision
 from pycocotools import mask as pole_mask
 
-import datasets.transforms as T
+import torchvision.transforms as T
 
 
 class PoleDetection(torchvision.datasets.CocoDetection):

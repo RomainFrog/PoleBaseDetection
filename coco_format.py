@@ -7,7 +7,10 @@ from PIL import Image
 from sahi.utils.coco import Coco, CocoAnnotation, CocoCategory, CocoImage
 from sahi.utils.file import save_json
 import argparse
-import tqdm
+from tqdm import tqdm
+
+def depth_regression(X):
+    return 1221.1025860930577 -6.13183029e+00*X + 1.03173169e-02*X**2 -5.76531414e-06*X**3
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--data_dir", default="data_manual_annotations", help="data directory")
@@ -18,8 +21,9 @@ data_dir = args.data_dir
 anotation_dir = args.anotation_dir
 
 random.seed(42)
-box_w, box_h = 200, 200
+size = 200
 train_per = 0.8
+alpha = 10
 img_dir = "images"
 
 
@@ -59,7 +63,8 @@ for csv_file in tqdm(csv_files):
         name_img = os.path.basename(csv_file)[:-3] + "jpg"
         filename = os.path.join(data_dir, img_dir, name_img)
 
-        
+        if not os.path.exists(filename):
+            continue
         height, width = Image.open(filename).size
         if count <= num_train_data:
             path=f"train/{name_img}"
@@ -74,16 +79,19 @@ for csv_file in tqdm(csv_files):
             x = int(float(row["x"]))
             y = int(float(row["y"]))
 
+            
+            d = depth_regression(y)
+            box_w = size//d * alpha
+            print(box_w)
             xtl = max(0, x - box_w // 2)
-            ytl = max(0, y - box_h // 2)
+            ytl = max(0, y - box_w // 2)
             coco_image.add_annotation(
-                CocoAnnotation(bbox=[xtl, ytl, box_w, box_h], category_id=0, category_name="pole")
+                CocoAnnotation(bbox=[xtl, ytl, box_w, box_w], category_id=0, category_name="pole")
             )
 
     if count <= num_train_data:
         coco_train.add_image(coco_image)
         shutil.copy2(filename, data_train_path)
-        print(f"train: {count}")
     else:
         coco_val.add_image(coco_image)
         shutil.copy2(filename, data_val_path)
