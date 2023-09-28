@@ -6,12 +6,20 @@ import random
 from PIL import Image
 from sahi.utils.coco import Coco, CocoAnnotation, CocoCategory, CocoImage
 from sahi.utils.file import save_json
+import argparse
+import tqdm
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--data_dir", default="data_manual_annotations", help="data directory")
+parser.add_argument("--anotation_dir", default="annotations_tx_reviewed_final", help="annotation directory")
+args = parser.parse_args()
+
+data_dir = args.data_dir
+anotation_dir = args.anotation_dir
 
 random.seed(42)
 box_w, box_h = 200, 200
 train_per = 0.8
-data_dir = "data_manual_annotations"
-anotation_dir = "annotations_phx"
 img_dir = "images"
 
 
@@ -39,7 +47,7 @@ print(num_train_data)
 count = 1
 
 # Loop through each CSV file and append its data to the merged_data DataFrame
-for csv_file in csv_files:
+for csv_file in tqdm(csv_files):
     with open(csv_file, "r") as csvfile:
         reader = csv.DictReader(csvfile)
 

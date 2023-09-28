@@ -10,10 +10,19 @@ import random
 
 random.seed(42)
 
+import argparse
+from tqdm import tqdm
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--data_dir", default="data_manual_annotations", help="data directory")
+parser.add_argument("--annotation_dir", default="annotations_tx_reviewed_final", help="annotation directory")
+args = parser.parse_args()
+
+data_dir = args.data_dir
+anotation_dir = args.annotation_dir
+
 box_w, box_h = 200, 200
 train_per = 0.8
-data_dir = "data_manual_annotations"
-anotation_dir = "annotations_tx_reviewed"
 img_dir = "images"
 
 
@@ -41,7 +50,7 @@ num_train_data = int(len(csv_files) * train_per)
 count = 1
 
 # Loop through each CSV file and append its data to the merged_data DataFrame
-for csv_file in csv_files:
+for csv_file in tqdm(csv_files):
     with open(csv_file, "r") as csvfile:
         reader = csv.DictReader(csvfile)
 
@@ -53,7 +62,8 @@ for csv_file in csv_files:
         name_img = os.path.basename(csv_file)[:-3] + "jpg"
         filename = os.path.join(data_dir, img_dir, name_img)
 
-        
+        if not os.path.exists(filename):
+            continue
         height, width = Image.open(filename).size
         if count <= num_train_data:
             path=f"train/{name_img}"
@@ -75,7 +85,6 @@ for csv_file in csv_files:
     if count <= num_train_data:
         coco_train.add_image(coco_image)
         shutil.copy2(filename, data_train_path)
-        print(f"train/{name_img}")
     else:
         coco_val.add_image(coco_image)
         shutil.copy2(filename, data_val_path)

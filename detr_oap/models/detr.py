@@ -153,10 +153,13 @@ class SetCriterion(nn.Module):
         src_boxes = outputs['pred_boxes'][idx]
         target_boxes = torch.cat([t['boxes'][i] for t, (_, i) in zip(targets, indices)], dim=0)
 
+        device = target_boxes.device
         loss_bbox = F.l1_loss(src_boxes[:,:2], target_boxes[:,:2], reduction='none')
         # Add depth estimation factor
-        depth = torch.tensor([depth_regression(yi) for yi in target_boxes[:,1]])
-        loss_bbox = loss_bbox * depth
+        depth = torch.tensor([depth_regression(yi) for yi in target_boxes[:,1]], device=device)
+        print(loss_bbox.shape)
+        print(depth.shape)
+        loss_bbox = loss_bbox * depth[:,None]
 
         losses = {}
         losses['loss_bbox'] = loss_bbox.sum() / num_boxes
