@@ -157,8 +157,6 @@ class SetCriterion(nn.Module):
         loss_bbox = F.l1_loss(src_boxes[:,:2], target_boxes[:,:2], reduction='none')
         # Add depth estimation factor
         depth = torch.tensor([depth_regression(yi) for yi in target_boxes[:,1]], device=device)
-        print(loss_bbox.shape)
-        print(depth.shape)
         loss_bbox = loss_bbox * depth[:,None]
 
         losses = {}
