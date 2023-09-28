@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from torch import nn
 
 from util import box_ops
+from util.depth_regression import depth_regression
 from util.misc import (NestedTensor, nested_tensor_from_tensor_list,
                        accuracy, get_world_size, interpolate,
                        is_dist_avail_and_initialized)
@@ -140,6 +141,7 @@ class SetCriterion(nn.Module):
         card_err = F.l1_loss(card_pred.float(), tgt_lengths.float())
         losses = {'cardinality_error': card_err}
         return losses
+    
 
     def loss_boxes(self, outputs, targets, indices, num_boxes):
         """Compute the losses related to the bounding boxes, the L1 regression loss and the GIoU loss
@@ -152,6 +154,9 @@ class SetCriterion(nn.Module):
         target_boxes = torch.cat([t['boxes'][i] for t, (_, i) in zip(targets, indices)], dim=0)
 
         loss_bbox = F.l1_loss(src_boxes[:,:2], target_boxes[:,:2], reduction='none')
+        # Add depth estimation factor
+        depth = torch.tensor([depth_regression(yi) for yi in target_boxes[:,1]])
+        loss_bbox = loss_bbox * depth
 
         losses = {}
         losses['loss_bbox'] = loss_bbox.sum() / num_boxes
