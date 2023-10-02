@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from torch import nn
 
 from util import box_ops
-from util.depth_regression import depth_regression
+from util.depth_regression import depth_regression, depth_rescaling
 from util.misc import (NestedTensor, nested_tensor_from_tensor_list,
                        accuracy, get_world_size, interpolate,
                        is_dist_avail_and_initialized)
@@ -156,7 +156,7 @@ class SetCriterion(nn.Module):
         device = target_boxes.device
         loss_bbox = F.l1_loss(src_boxes[:,:2], target_boxes[:,:2], reduction='none')
         # Add depth estimation factor
-        depth = torch.tensor([depth_regression(yi) for yi in target_boxes[:,1]], device=device)
+        depth = torch.tensor([depth_rescaling(depth_regression(yi)) for yi in target_boxes[:,1]], device=device)
         loss_bbox = loss_bbox * depth[:,None]
 
         losses = {}
