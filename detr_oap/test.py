@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Iterable
 from PIL import Image
 import numpy as np
+import json
 
 import torch
 
@@ -126,11 +127,22 @@ def get_args_parser():
 
 @torch.no_grad()
 def infer(images_path, model, postprocessors, device, output_path):
+    # load grount truth json from data_manual_annotations/val.json
+    gt = "../data_manual_annotations/annotations_tx_reviewed_final"
+    
     model.eval()
     duration = 0
     for img_sample in images_path:
         filename = os.path.basename(img_sample)
         print("processing...{}".format(filename))
+        # get the file name without extension
+        file_basename = os.path.splitext(filename)[0]
+        # get ground truth from csv file
+        gt_file = os.path.join(gt, file_basename + ".csv")
+        if not os.path.exists(gt_file):
+            continue
+        # read csv file data (skip first line)
+        gt_data = np.genfromtxt(gt_file, delimiter=',', skip_header=1).astype(np.int32)
         orig_image = Image.open(img_sample)
         w, h = orig_image.size
         transform = make_Pole_transforms("val")
@@ -162,7 +174,6 @@ def infer(images_path, model, postprocessors, device, output_path):
 
         start_t = time.perf_counter()
         outputs = model(image)
-        print(outputs)
         end_t = time.perf_counter()
 
         outputs["pred_logits"] = outputs["pred_logits"].cpu()
@@ -172,10 +183,10 @@ def infer(images_path, model, postprocessors, device, output_path):
         # keep = probas.max(-1).values > 0.85
         keep = probas.max(-1).values > args.thresh
 
-        # Scale image to the same size as the original
+        # Scale bbox to the same size as the original
         bboxes_scaled = rescale_bboxes(outputs['pred_boxes'][0, keep], orig_image.size)
-        print(bboxes_scaled)
         probas = probas[keep].cpu().data.numpy()
+
 
         for hook in hooks:
             hook.remove()
@@ -196,6 +207,10 @@ def infer(images_path, model, postprocessors, device, output_path):
             bbox = box.cpu().data.numpy()
             bbox = bbox.astype(np.int32)
             cv2.circle(img, (bbox[0], bbox[1]), 2, (0, 0, 255), 2)
+
+        for p in gt_data:
+            p = p[1:3]
+            cv2.circle(img, (p[0], p[1]), 2, (0, 255, 0), 2)
 
         # img_save_path = os.path.join(output_path, filename)
         # cv2.imwrite(img_save_path, img)
