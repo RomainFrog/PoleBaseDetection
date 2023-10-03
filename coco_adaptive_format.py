@@ -15,24 +15,25 @@ def depth_regression(X):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_dir", default="data_manual_annotations", help="data directory")
-    parser.add_argument("--annotation_dir", default="annotations_tx_reviewed_final", help="annotation directory")
-    parser.add_argument("--output_dir", default="datasets/default_dataset", help="output dataset directory")
+    parser.add_argument("--anotation_dir", default="annotations_tx_reviewed_final", help="annotation directory")
+    parser.add_argument("--output_dir", default="default_dataset", help="output dataset directory")
     parser.add_argument("--size", default=200, help="size of the bounding box")
-    parser.add_argument("--train_per", default=0.8, help="Percentage of training data")
+    parser.add_argument
     args = parser.parse_args()
 
     data_dir = args.data_dir
-    anotation_dir = args.annotation_dir
+    anotation_dir = args.anotation_dir
     output_dir = args.output_dir
     size = args.size
-    train_per = args.train_per
 
     random.seed(42)
+    train_per = 0.8
+    alpha = 10
     img_dir = "images"
 
 
-    data_train_path= os.path.join(output_dir, img_dir,"train")
-    data_val_path=os.path.join(output_dir, img_dir,"val")
+    data_train_path= os.path.join(data_dir, img_dir,"train")
+    data_val_path=os.path.join(data_dir, img_dir,"val")
     os.makedirs(data_train_path, exist_ok=True)
     os.makedirs(data_val_path, exist_ok=True)
 
@@ -85,10 +86,12 @@ def main():
 
                 
                 d = depth_regression(y)
-                xtl = max(0, x - size // 2)
-                ytl = max(0, y - size // 2)
+                box_w = max(5,size//d * alpha)
+                print(box_w)
+                xtl = max(0, x - box_w // 2)
+                ytl = max(0, y - box_w // 2)
                 coco_image.add_annotation(
-                    CocoAnnotation(bbox=[xtl, ytl, size, size], category_id=0, category_name="pole")
+                    CocoAnnotation(bbox=[xtl, ytl, box_w, box_w], category_id=0, category_name="pole")
                 )
 
         if count <= num_train_data:
@@ -99,10 +102,9 @@ def main():
             shutil.copy2(filename, data_val_path)
         count += 1
 
-    coco_train_path= os.path.join(output_dir, "train.json")
-    coco_val_path= os.path.join(output_dir, "val.json")
-    save_json(data=coco_train.json, save_path=coco_train_path)
-    save_json(data=coco_val.json, save_path=coco_val_path)
+
+    save_json(data=coco_train.json, save_path="data_manual_annotations/train.json")
+    save_json(data=coco_val.json, save_path="data_manual_annotations/val.json")
 
 
 if __name__ == "__main__":
