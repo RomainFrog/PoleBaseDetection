@@ -45,6 +45,20 @@ def get_images(in_path):
     return img_files
 
 
+def get_err_sum(matching):
+    """ Compute the sum of the error in x """
+    error_sum_x = 0
+    error_sum_l1 = 0
+    error_sum_l2 = 0
+    for match in matching:
+        error_sum_x += abs(match[0][0] - match[1][0])
+        error_sum_l1 += np.linalg.norm(match[0] - match[1], ord=1)
+        error_sum_l2 += np.linalg.norm(match[0] - match[1], ord=2)
+
+    return error_sum_x, error_sum_l1, error_sum_l2
+
+
+
 def get_args_parser():
     parser = argparse.ArgumentParser("Set transformer detector", add_help=False)
     parser.add_argument("--lr", default=1e-4, type=float)
@@ -163,6 +177,8 @@ def get_args_parser():
 
     parser.add_argument("--thresh", default=0.5, type=float)
 
+    parser.add_argument("--show", default=False, type=bool)
+
     return parser
 
 
@@ -178,6 +194,10 @@ def infer(images_path, model, postprocessors, device, output_path):
     total_fn = 0
 
     total = 0
+    n_pairwise_matches = 0
+    error_sum_x = 0
+    error_sum_l1 = 0
+    error_sum_l2 = 0
 
     for img_sample in images_path:
         filename = os.path.basename(img_sample)
@@ -252,45 +272,61 @@ def infer(images_path, model, postprocessors, device, output_path):
         h, w = conv_features["0"].tensors.shape[-2:]
 
         print("Start matching")
-        l_tp, l_fp, l_fn = get_tp_fp_fn(bboxes_scaled, probas, gt_data, 20)
+        l_tp, l_fp, l_fn, matching = get_tp_fp_fn(bboxes_scaled, probas, gt_data, 20)
         print("End matching")
+
+        n_pairwise_matches += len(matching)
+        err_x, err_l1, err_l2 = get_err_sum(matching)
+        error_sum_x += err_x
+        error_sum_l1 += err_l1
+        error_sum_l2 += err_l2
 
         total_tp += len(l_tp)
         total_fp += len(l_fp)
         total_fn += len(l_fn)
 
-        # if len(l_tp) + len(l_fp) + len(l_fn) == 0:
-        #     continue
 
-        # img = np.array(orig_image)
-        # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        # for tp in l_tp:
-        #     cv2.circle(img, (int(tp[0]), int(tp[1])), 2, (0, 0, 255), 2)  # red
+        
 
-        # for fp in l_fp:
-        #     cv2.circle(img, (int(fp[0]), int(fp[1])), 2, (255, 0, 0), 2)  # blue
+        if args.show:
 
-        # for fn in l_fn:
-        #     cv2.circle(img, (int(fn[0]), int(fn[1])), 2, (0, 255, 0), 2)  # green
+            if len(l_tp) + len(l_fp) + len(l_fn) == 0:
+                continue
 
-        # # img_save_path = os.path.join(output_path, filename)
-        # # cv2.imwrite(img_save_path, img)
-        # cv2.imshow("img", img)
-        # cv2.waitKey()
+            img = np.array(orig_image)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            for tp in l_tp:
+                cv2.circle(img, (int(tp[0]), int(tp[1])), 2, (0, 0, 255), 2)  # red
+
+            for fp in l_fp:
+                cv2.circle(img, (int(fp[0]), int(fp[1])), 2, (255, 0, 0), 2)  # blue
+
+            for fn in l_fn:
+                cv2.circle(img, (int(fn[0]), int(fn[1])), 2, (0, 255, 0), 2)  # green
+
+            # img_save_path = os.path.join(output_path, filename)
+            # cv2.imwrite(img_save_path, img)
+            cv2.imshow("img", img)
+            cv2.waitKey()
 
         print(f"End processing {filename}")
 
     # compute precision and recall
     recall, precision = get_recall_precision(total_tp, total_fp, total_fn)
+    MAE_x = error_sum_x / n_pairwise_matches
+    MAE_l1 = error_sum_l1 / n_pairwise_matches
+    MAE_l2 = error_sum_l2 / n_pairwise_matches
 
     avg_duration = duration / len(images_path)
     print("Avg. Time: {:.3f}s".format(avg_duration))
     print("Recall: {:.3f}, Precision: {:.3f}".format(recall, precision))
+    print("MAE_x: {:.3f}, MAE_l1: {:.3f}, MAE_l2: {:.3f}".format(MAE_x, MAE_l1, MAE_l2))
 
 
 # function that return number of true positives, false positives and false negatives
 def get_tp_fp_fn(pred, probas, gt, thresh):
     l_tp, l_fp, l_fn = [], [], []
+    matching = []
 
     pred = pred.numpy()
     print(pred)
@@ -310,6 +346,7 @@ def get_tp_fp_fn(pred, probas, gt, thresh):
                 gt_copy = np.delete(gt_copy, np.where(gt_copy == g)[0], axis=0)
                 pred_copy = np.delete(pred_copy, np.where(pred_copy == p)[0], axis=0)
                 l_tp.append(p)
+                matching.append((p, g))
                 break
         else:
             l_fp.append(p)
@@ -319,7 +356,7 @@ def get_tp_fp_fn(pred, probas, gt, thresh):
 
     print("tp: {}, fp: {}, fn: {}".format(len(l_tp), len(l_fp), len(l_fn)))
 
-    return l_tp, l_fp, l_fn
+    return l_tp, l_fp, l_fn, matching
 
 
 # get recall and precision
