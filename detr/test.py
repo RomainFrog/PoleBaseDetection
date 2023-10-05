@@ -194,6 +194,7 @@ def infer(images_path, model, postprocessors, device, output_path):
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         for idx, box in enumerate(bboxes_scaled):
             bbox = box.cpu().data.numpy()
+            print(bbox)
             bbox = bbox.astype(np.int32)
             bbox = np.array([
                 [bbox[0], bbox[1]],
