@@ -51,6 +51,7 @@ def get_err_sum(matching):
     error_sum_l1 = 0
     error_sum_l2 = 0
     for match in matching:
+        print(match)
         error_sum_x += abs(match[0][0] - match[1][0])
         error_sum_l1 += np.linalg.norm(match[0] - match[1], ord=1)
         error_sum_l2 += np.linalg.norm(match[0] - match[1], ord=2)
@@ -211,12 +212,14 @@ def infer(images_path, model, postprocessors, device, output_path):
         print("processing...{}".format(filename))
         # if the file doesn't have any ground truth
         if os.path.getsize(gt_file) <= 14:
-            gt_data = []
+            gt_data = np.array([])
         else:
             # read csv file data (skip first line)
             gt_data = np.genfromtxt(gt_file, delimiter=",", skip_header=1, usecols=[1, 2]).astype(
                 np.int32
             )
+            if len(gt_data.shape) == 1:
+                gt_data = np.expand_dims(gt_data, axis=0)
 
         orig_image = Image.open(img_sample)
         w, h = orig_image.size
@@ -272,7 +275,7 @@ def infer(images_path, model, postprocessors, device, output_path):
         h, w = conv_features["0"].tensors.shape[-2:]
 
         print("Start matching")
-        l_tp, l_fp, l_fn, matching = get_tp_fp_fn(bboxes_scaled, probas, gt_data, 20)
+        l_tp, l_fp, l_fn, matching = get_tp_fp_fn(bboxes_scaled, probas, gt_data, 10)
         print("End matching")
 
         n_pairwise_matches += len(matching)
@@ -335,10 +338,11 @@ def get_tp_fp_fn(pred, probas, gt, thresh):
     pred = pred[idx]
     print(pred)
     print(gt)
+    print(type(gt))
 
-    pred_copy = pred.copy()
-    gt_copy = gt.copy()
-
+    pred_copy = np.copy(pred)
+    gt_copy = np.copy(gt)
+    print(type(gt_copy))
     for p in pred_copy:
         for g in gt_copy:
             dist = np.linalg.norm(p - g)
