@@ -191,6 +191,28 @@ def get_recall_precision(tp, fp, fn):
     return recall, precision
 
 
+def get_MAE(matching):
+    """ Compute MAE_x, MAE_l1, MAE_l2 sums. """
+    err_x_sum, err_l1_sum, err_l2_sum = 0,0,0
+    for match in matching:
+        pred, gt = match
+        pred_x = (pred[0] + pred[2]) / 2
+        pred_y = (pred[1] + pred[3]) / 2
+        gt_x = (gt[0] + gt[2]) / 2
+        gt_y = (gt[1] + gt[3]) / 2
+        err_x_sum += abs(pred_x - gt_x)
+        pred_center = np.array([pred_x, pred_y])
+        gt_center = np.array([gt_x, gt_y])
+        # Compute L1 norm
+        err_l1_sum += np.linalg.norm(pred_center - gt_center, ord=1)
+        # Compute L2 norm
+        err_l2_sum += np.linalg.norm(pred_center - gt_center, ord=2)
+
+    return err_x_sum, err_l1_sum, err_l2_sum
+
+        
+
+
 @torch.no_grad()
 def infer(images_path, model, postprocessors, device, dataset):
     # load grount truth json from data_manual_annotations/val.json
@@ -289,11 +311,13 @@ def infer(images_path, model, postprocessors, device, dataset):
     # compute precision and recall
     # TODO: get MAE
     recall, precision = get_recall_precision(total_tp, total_fp, total_fn)
-    # MAE_x = error_sum_x / n_pairwise_matches
-    # MAE_l1 = error_sum_l1 / n_pairwise_matches
-    # MAE_l2 = error_sum_l2 / n_pairwise_matches
+    error_sum_x, error_sum_l1, error_sum_l2 = get_MAE(matching)
+    MAE_x = error_sum_x / n_pairwise_matches
+    MAE_l1 = error_sum_l1 / n_pairwise_matches
+    MAE_l2 = error_sum_l2 / n_pairwise_matches
 
     print("Recall: {:.3f}, Precision: {:.3f}".format(recall, precision))
+    print("MAE_x: {:.3f}, MAE_l1: {:.3f}, MAE_l2: {:.3f}".format(MAE_x, MAE_l1, MAE_l2))
     avg_duration = duration / len(images_path)
     print("Avg. Time: {:.3f}s".format(avg_duration))
 
