@@ -24,7 +24,7 @@ def main():
     data_dir = args.data_dir
     anotation_dir = args.annotation_dir
     output_dir = args.output_dir
-    size = args.size
+    size = int(args.size)
     train_per = args.train_per
 
     random.seed(42)

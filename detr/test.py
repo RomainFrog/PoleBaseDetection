@@ -23,6 +23,7 @@ from datasets.pole import PoleDetection
 import matplotlib.pyplot as plt
 import time
 import torchvision.transforms as T
+from tqdm import tqdm
 
 
 
@@ -96,7 +97,7 @@ def get_tp_fp_fn(pred, probas, gt, thresh):
     for g in gt_copy:
         l_fn.append(g)
 
-    print("tp: {}, fp: {}, fn: {}".format(len(l_tp), len(l_fp), len(l_fn)))
+    # print("tp: {}, fp: {}, fn: {}".format(len(l_tp), len(l_fp), len(l_fn)))
 
     return l_tp, l_fp, l_fn, matching
 
@@ -200,7 +201,7 @@ def infer(images_path, model, postprocessors, device, dataset):
     n_pairwise_matches, error_sum_x, error_sum_l1, error_sum_l2 = 0,0,0,0
     ###############################
     
-    for orig_image, target in dataset:
+    for orig_image, target in tqdm(dataset):
         # cast orig tensor to PIL image
         w, h = orig_image.size
         transform = make_Pole_transforms("val")
@@ -228,9 +229,9 @@ def infer(images_path, model, postprocessors, device, dataset):
         bboxes_scaled = rescale_bboxes(outputs['pred_boxes'][0, keep], (w,h))
         probas = probas[keep].cpu().data.numpy()
 
-        print("Start matching")
+        # print("Start matching")
         l_tp, l_fp, l_fn, matching = get_tp_fp_fn(bboxes_scaled, probas, gt_data, args.thresh)
-        print("End matching")
+        # print("End matching")
 
         n_pairwise_matches += len(matching)
         #TODO: get error sum
@@ -246,9 +247,9 @@ def infer(images_path, model, postprocessors, device, dataset):
 
         if args.show:
             if len(bboxes_scaled) == 0:
-                print("No detection")
+                # print("No detection")
                 continue
-
+            ###### Plot prediction ######
             img = np.array(orig_image)
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             for idx, box in enumerate(bboxes_scaled):
@@ -261,10 +262,12 @@ def infer(images_path, model, postprocessors, device, dataset):
                     [bbox[0], bbox[3]],
                     ])
                 bbox = bbox.reshape((4, 2))
-                cv2.polylines(img, [bbox], True, (0, 255, 0), 2)
+                cv2.polylines(img, [bbox], True, (0, 0, 255), 2)
                 # Display a RED dot in the center of the bounding box
                 # center = (int((bbox[0][0] + bbox[2][0]) / 2), int((bbox[0][1] + bbox[2][1]) / 2))
                 # cv2.circle(img, center, 2, (0, 0, 255), 2)
+
+            ##### Plot ground truth #####
             for idx, box in enumerate(gt_data):
                 bbox = box.cpu().data.numpy()
                 bbox = bbox.astype(np.int32)
@@ -275,14 +278,13 @@ def infer(images_path, model, postprocessors, device, dataset):
                     [bbox[0], bbox[3]],
                     ])
                 bbox = bbox.reshape((4, 2))
-                cv2.polylines(img, [bbox], True, (255, 0, 0), 2)
-            # img_save_path = os.path.join(output_path, filename)
-            # cv2.imwrite(img_save_path, img)
+                cv2.polylines(img, [bbox], True, (0, 255, 0), 2)
+
             cv2.imshow("img", img)
             cv2.waitKey()
         infer_time = end_t - start_t
         duration += infer_time
-        print("Processing... ({:.3f}s)".format(infer_time))
+        # print("Processing... ({:.3f}s)".format(infer_time))
 
     # compute precision and recall
     # TODO: get MAE
@@ -310,7 +312,7 @@ if __name__ == "__main__":
     image_paths = get_images(args.data_path)
 
     # Create PoleDataset
-    dataset_folder = "../datasets/data_bbox_400_400"
-    dataset_test = PoleDetection(dataset_folder + "/images", dataset_folder + "/train.json",transforms=None, return_masks=args.masks)
+    dataset_folder = args.data_path
+    dataset_test = PoleDetection(dataset_folder + "/images", dataset_folder + "/val.json",transforms=None, return_masks=args.masks)
 
     infer(image_paths, model, postprocessors, device, dataset_test)
