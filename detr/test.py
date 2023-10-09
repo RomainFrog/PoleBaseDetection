@@ -191,18 +191,20 @@ def get_recall_precision(tp, fp, fn):
     return recall, precision
 
 
-def get_MAE(matching):
+def get_error(matching):
     """ Compute MAE_x, MAE_l1, MAE_l2 sums. """
     err_x_sum, err_l1_sum, err_l2_sum = 0,0,0
     for match in matching:
         pred, gt = match
+        print(pred, gt)
         pred_x = (pred[0] + pred[2]) / 2
         pred_y = (pred[1] + pred[3]) / 2
         gt_x = (gt[0] + gt[2]) / 2
         gt_y = (gt[1] + gt[3]) / 2
-        err_x_sum += abs(pred_x - gt_x)
         pred_center = np.array([pred_x, pred_y])
         gt_center = np.array([gt_x, gt_y])
+
+        err_x_sum += abs(pred_x - gt_x)
         # Compute L1 norm
         err_l1_sum += np.linalg.norm(pred_center - gt_center, ord=1)
         # Compute L2 norm
@@ -257,10 +259,10 @@ def infer(images_path, model, postprocessors, device, dataset):
 
         n_pairwise_matches += len(matching)
         #TODO: get error sum
-        # err_x, err_l1, err_l2 = get_err_sum(matching)
-        # error_sum_x += err_x
-        # error_sum_l1 += err_l1
-        # error_sum_l2 += err_l2
+        err_x, err_l1, err_l2 = get_error(matching)
+        error_sum_x += err_x
+        error_sum_l1 += err_l1
+        error_sum_l2 += err_l2
 
         total_tp += len(l_tp)
         total_fp += len(l_fp)
@@ -309,9 +311,7 @@ def infer(images_path, model, postprocessors, device, dataset):
         # print("Processing... ({:.3f}s)".format(infer_time))
 
     # compute precision and recall
-    # TODO: get MAE
     recall, precision = get_recall_precision(total_tp, total_fp, total_fn)
-    error_sum_x, error_sum_l1, error_sum_l2 = get_MAE(matching)
     MAE_x = error_sum_x / n_pairwise_matches
     MAE_l1 = error_sum_l1 / n_pairwise_matches
     MAE_l2 = error_sum_l2 / n_pairwise_matches
