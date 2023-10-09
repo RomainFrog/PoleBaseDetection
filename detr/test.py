@@ -18,9 +18,12 @@ import util.misc as utils
 
 from models import build_model
 from datasets.pole import make_Pole_transforms
+from datasets.pole import PoleDetection
 
 import matplotlib.pyplot as plt
 import time
+import torchvision.transforms as T
+
 
 
 def box_cxcywh_to_xyxy(x):
@@ -47,6 +50,55 @@ def get_images(in_path):
                 img_files.append(os.path.join(dirpath, file))
 
     return img_files
+
+def iou(boxA, boxB):
+    """ Compute bbox IoU. """
+    xA = max(boxA[0], boxB[0])
+    yA = max(boxA[1], boxB[1])
+    xB = min(boxA[2], boxB[2])
+    yB = min(boxA[3], boxB[3])
+    interArea = max(0, xB - xA + 1) * max(0, yB - yA + 1)
+    boxAArea = (boxA[2] - boxA[0] + 1) * (boxA[3] - boxA[1] + 1)
+    boxBArea = (boxB[2] - boxB[0] + 1) * (boxB[3] - boxB[1] + 1)
+    iou = interArea / float(boxAArea + boxBArea - interArea)
+    return iou
+
+
+# function that return number of true positives, false positives and false negatives
+def get_tp_fp_fn(pred, probas, gt, thresh):
+    l_tp, l_fp, l_fn = [], [], []
+    matching = []
+
+    pred = pred.numpy()
+    # print(pred)
+    # print(probas)
+    idx = np.argsort(probas.flatten())[::-1]
+    pred = pred[idx]
+    # print(pred)
+    # print(gt)
+
+    pred_copy = np.copy(pred)
+    gt_copy = np.copy(gt)
+    # print(type(gt_copy))
+    for p in pred_copy:
+        for g in gt_copy:
+            bbox_iou = iou(p, g)
+            # Pass if IoU is less than the threshold (tipically 0.5)
+            if bbox_iou >= 0.35:
+                gt_copy = np.delete(gt_copy, np.where(gt_copy == g)[0], axis=0)
+                pred_copy = np.delete(pred_copy, np.where(pred_copy == p)[0], axis=0)
+                l_tp.append(p)
+                matching.append((p, g))
+                break
+        else:
+            l_fp.append(p)
+
+    for g in gt_copy:
+        l_fn.append(g)
+
+    print("tp: {}, fp: {}, fn: {}".format(len(l_tp), len(l_fp), len(l_fn)))
+
+    return l_tp, l_fp, l_fn, matching
 
 
 def get_args_parser():
@@ -124,44 +176,42 @@ def get_args_parser():
 
     parser.add_argument('--thresh', default=0.5, type=float)
 
+    parser.add_argument("--show", default=False, type=bool)
+
+
     return parser
 
 
+# get recall and precision
+def get_recall_precision(tp, fp, fn):
+    recall = tp / (tp + fn)
+    precision = tp / (tp + fp)
+
+    return recall, precision
+
+
 @torch.no_grad()
-def infer(images_path, model, postprocessors, device, output_path):
+def infer(images_path, model, postprocessors, device, dataset):
+    # load grount truth json from data_manual_annotations/val.json
     model.eval()
-    duration = 0
-    for img_sample in images_path:
-        filename = os.path.basename(img_sample)
-        print("processing...{}".format(filename))
-        orig_image = Image.open(img_sample)
+
+    ##### Auxiliary variables #####
+    duration, total_tp, total_fp, total_fn = 0,0,0,0
+    n_pairwise_matches, error_sum_x, error_sum_l1, error_sum_l2 = 0,0,0,0
+    ###############################
+    
+    for orig_image, target in dataset:
+        # cast orig tensor to PIL image
         w, h = orig_image.size
         transform = make_Pole_transforms("val")
         dummy_target = {
             "size": torch.as_tensor([int(h), int(w)]),
-            "orig_size": torch.as_tensor([int(h), int(w)])
+            "orig_size": torch.as_tensor([int(h), int(w)]),
         }
-        image, targets = transform(orig_image, dummy_target)
+        image, _ = transform(orig_image, dummy_target)
         image = image.unsqueeze(0)
         image = image.to(device)
 
-
-        conv_features, enc_attn_weights, dec_attn_weights = [], [], []
-        hooks = [
-            model.backbone[-2].register_forward_hook(
-                        lambda self, input, output: conv_features.append(output)
-
-            ),
-            model.transformer.encoder.layers[-1].self_attn.register_forward_hook(
-                        lambda self, input, output: enc_attn_weights.append(output[1])
-
-            ),
-            model.transformer.decoder.layers[-1].multihead_attn.register_forward_hook(
-                        lambda self, input, output: dec_attn_weights.append(output[1])
-
-            ),
-
-        ]
 
         start_t = time.perf_counter()
         outputs = model(image)
@@ -172,50 +222,76 @@ def infer(images_path, model, postprocessors, device, output_path):
 
         probas = outputs['pred_logits'].softmax(-1)[0, :, :-1]
         # keep = probas.max(-1).values > 0.85
-        keep = probas.max(-1).values > args.thresh
+        keep = probas.max(-1).values > 0.5
 
-        bboxes_scaled = rescale_bboxes(outputs['pred_boxes'][0, keep], orig_image.size)
+        gt_data = target['boxes']
+        bboxes_scaled = rescale_bboxes(outputs['pred_boxes'][0, keep], (w,h))
         probas = probas[keep].cpu().data.numpy()
 
-        for hook in hooks:
-            hook.remove()
+        print("Start matching")
+        l_tp, l_fp, l_fn, matching = get_tp_fp_fn(bboxes_scaled, probas, gt_data, args.thresh)
+        print("End matching")
 
-        conv_features = conv_features[0]
-        enc_attn_weights = enc_attn_weights[0]
-        dec_attn_weights = dec_attn_weights[0].cpu()
+        n_pairwise_matches += len(matching)
+        #TODO: get error sum
+        # err_x, err_l1, err_l2 = get_err_sum(matching)
+        # error_sum_x += err_x
+        # error_sum_l1 += err_l1
+        # error_sum_l2 += err_l2
 
-        # get the feature map shape
-        h, w = conv_features['0'].tensors.shape[-2:]
+        total_tp += len(l_tp)
+        total_fp += len(l_fp)
+        total_fn += len(l_fn)
 
-        if len(bboxes_scaled) == 0:
-            continue
 
-        img = np.array(orig_image)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        for idx, box in enumerate(bboxes_scaled):
-            bbox = box.cpu().data.numpy()
-            print(bbox)
-            bbox = bbox.astype(np.int32)
-            bbox = np.array([
-                [bbox[0], bbox[1]],
-                [bbox[2], bbox[1]],
-                [bbox[2], bbox[3]],
-                [bbox[0], bbox[3]],
-                ])
-            bbox = bbox.reshape((4, 2))
-            cv2.polylines(img, [bbox], True, (0, 255, 0), 2)
-            # Display a RED dot in the center of the bounding box
-            center = (int((bbox[0][0] + bbox[2][0]) / 2), int((bbox[0][1] + bbox[2][1]) / 2))
-            cv2.circle(img, center, 2, (0, 0, 255), 2)
+        if args.show:
+            if len(bboxes_scaled) == 0:
+                print("No detection")
+                continue
 
-        # img_save_path = os.path.join(output_path, filename)
-        # cv2.imwrite(img_save_path, img)
-        cv2.imshow("img", img)
-        cv2.waitKey()
+            img = np.array(orig_image)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            for idx, box in enumerate(bboxes_scaled):
+                bbox = box.cpu().data.numpy()
+                bbox = bbox.astype(np.int32)
+                bbox = np.array([
+                    [bbox[0], bbox[1]],
+                    [bbox[2], bbox[1]],
+                    [bbox[2], bbox[3]],
+                    [bbox[0], bbox[3]],
+                    ])
+                bbox = bbox.reshape((4, 2))
+                cv2.polylines(img, [bbox], True, (0, 255, 0), 2)
+                # Display a RED dot in the center of the bounding box
+                # center = (int((bbox[0][0] + bbox[2][0]) / 2), int((bbox[0][1] + bbox[2][1]) / 2))
+                # cv2.circle(img, center, 2, (0, 0, 255), 2)
+            for idx, box in enumerate(gt_data):
+                bbox = box.cpu().data.numpy()
+                bbox = bbox.astype(np.int32)
+                bbox = np.array([
+                    [bbox[0], bbox[1]],
+                    [bbox[2], bbox[1]],
+                    [bbox[2], bbox[3]],
+                    [bbox[0], bbox[3]],
+                    ])
+                bbox = bbox.reshape((4, 2))
+                cv2.polylines(img, [bbox], True, (255, 0, 0), 2)
+            # img_save_path = os.path.join(output_path, filename)
+            # cv2.imwrite(img_save_path, img)
+            cv2.imshow("img", img)
+            cv2.waitKey()
         infer_time = end_t - start_t
         duration += infer_time
-        print("Processing...{} ({:.3f}s)".format(filename, infer_time))
+        print("Processing... ({:.3f}s)".format(infer_time))
 
+    # compute precision and recall
+    # TODO: get MAE
+    recall, precision = get_recall_precision(total_tp, total_fp, total_fn)
+    # MAE_x = error_sum_x / n_pairwise_matches
+    # MAE_l1 = error_sum_l1 / n_pairwise_matches
+    # MAE_l2 = error_sum_l2 / n_pairwise_matches
+
+    print("Recall: {:.3f}, Precision: {:.3f}".format(recall, precision))
     avg_duration = duration / len(images_path)
     print("Avg. Time: {:.3f}s".format(avg_duration))
 
@@ -223,8 +299,6 @@ def infer(images_path, model, postprocessors, device, output_path):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser('DETR training and evaluation script', parents=[get_args_parser()])
     args = parser.parse_args()
-    if args.output_dir:
-        Path(args.output_dir).mkdir(parents=True, exist_ok=True)
 
     device = torch.device(args.device)
 
@@ -235,4 +309,8 @@ if __name__ == "__main__":
     model.to(device)
     image_paths = get_images(args.data_path)
 
-    infer(image_paths, model, postprocessors, device, args.output_dir)
+    # Create PoleDataset
+    dataset_folder = "../datasets/data_bbox_400_400"
+    dataset_test = PoleDetection(dataset_folder + "/images", dataset_folder + "/train.json",transforms=None, return_masks=args.masks)
+
+    infer(image_paths, model, postprocessors, device, dataset_test)
