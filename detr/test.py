@@ -41,6 +41,12 @@ def rescale_bboxes(out_bbox, size):
                           ], dtype=torch.float32)
     return b
 
+def dummy_rescale_bboxes(out_bbox, bbox_size):
+    """ Rescale bounding boxes so that width and height are bbox_size and box keeps its center"""
+    center_x = (out_bbox[0] + out_bbox[2]) // 2
+    center_y = (out_bbox[1] + out_bbox[3]) // 2
+    return [center_x - bbox_size // 2, center_y - bbox_size // 2, center_x + bbox_size // 2, center_y + bbox_size // 2]
+
 def get_images(in_path):
     img_files = []
     for (dirpath, dirnames, filenames) in os.walk(in_path):
@@ -85,7 +91,7 @@ def get_tp_fp_fn(pred, probas, gt, thresh):
         for g in gt_copy:
             bbox_iou = iou(p, g)
             # Pass if IoU is less than the threshold (tipically 0.5)
-            if bbox_iou >= 0.35:
+            if bbox_iou >= 0.3:
                 gt_copy = np.delete(gt_copy, np.where(gt_copy == g)[0], axis=0)
                 pred_copy = np.delete(pred_copy, np.where(pred_copy == p)[0], axis=0)
                 l_tp.append(p)
@@ -196,7 +202,7 @@ def get_error(matching):
     err_x_sum, err_l1_sum, err_l2_sum = 0,0,0
     for match in matching:
         pred, gt = match
-        print(pred, gt)
+        print(f"Box widht: {pred[2] - pred[0]}")
         pred_x = (pred[0] + pred[2]) / 2
         pred_y = (pred[1] + pred[3]) / 2
         gt_x = (gt[0] + gt[2]) / 2
@@ -226,14 +232,14 @@ def infer(images_path, model, postprocessors, device, dataset):
     ###############################
     
     for orig_image, target in tqdm(dataset):
-        # cast orig tensor to PIL image
         w, h = orig_image.size
         transform = make_Pole_transforms("val")
         dummy_target = {
             "size": torch.as_tensor([int(h), int(w)]),
             "orig_size": torch.as_tensor([int(h), int(w)]),
         }
-        image, _ = transform(orig_image, dummy_target)
+        image, t = transform(orig_image, dummy_target)
+        print(t)
         image = image.unsqueeze(0)
         image = image.to(device)
 
@@ -251,6 +257,8 @@ def infer(images_path, model, postprocessors, device, dataset):
 
         gt_data = target['boxes']
         bboxes_scaled = rescale_bboxes(outputs['pred_boxes'][0, keep], (w,h))
+        print(bboxes_scaled.shape)
+        bboxes_scaled = torch.tensor([dummy_rescale_bboxes(bbox, 200) for bbox in bboxes_scaled])
         probas = probas[keep].cpu().data.numpy()
 
         # print("Start matching")
