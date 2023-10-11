@@ -91,7 +91,7 @@ def get_tp_fp_fn(pred, probas, gt, thresh):
         for g in gt_copy:
             bbox_iou = iou(p, g)
             # Pass if IoU is less than the threshold (tipically 0.5)
-            if bbox_iou >= 0.3:
+            if bbox_iou >= 0.5:
                 gt_copy = np.delete(gt_copy, np.where(gt_copy == g)[0], axis=0)
                 pred_copy = np.delete(pred_copy, np.where(pred_copy == p)[0], axis=0)
                 l_tp.append(p)
@@ -184,6 +184,7 @@ def get_args_parser():
     parser.add_argument('--thresh', default=0.5, type=float)
 
     parser.add_argument("--show", default=False, type=bool)
+    parser.add_argument("--size", default=100, type=float, help="Size of the bbox")
 
 
     return parser
@@ -202,7 +203,6 @@ def get_error(matching):
     err_x_sum, err_l1_sum, err_l2_sum = 0,0,0
     for match in matching:
         pred, gt = match
-        print(f"Box widht: {pred[2] - pred[0]}")
         pred_x = (pred[0] + pred[2]) / 2
         pred_y = (pred[1] + pred[3]) / 2
         gt_x = (gt[0] + gt[2]) / 2
@@ -239,7 +239,6 @@ def infer(images_path, model, postprocessors, device, dataset):
             "orig_size": torch.as_tensor([int(h), int(w)]),
         }
         image, t = transform(orig_image, dummy_target)
-        print(t)
         image = image.unsqueeze(0)
         image = image.to(device)
 
@@ -258,7 +257,7 @@ def infer(images_path, model, postprocessors, device, dataset):
         gt_data = target['boxes']
         bboxes_scaled = rescale_bboxes(outputs['pred_boxes'][0, keep], (w,h))
         print(bboxes_scaled.shape)
-        bboxes_scaled = torch.tensor([dummy_rescale_bboxes(bbox, 200) for bbox in bboxes_scaled])
+        bboxes_scaled = torch.tensor([dummy_rescale_bboxes(bbox, args.size) for bbox in bboxes_scaled])
         probas = probas[keep].cpu().data.numpy()
 
         # print("Start matching")
