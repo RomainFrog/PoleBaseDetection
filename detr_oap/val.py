@@ -16,6 +16,7 @@ from typing import Iterable
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
+import sklearn
 import torch
 import util.misc as utils
 from datasets.pole import make_Pole_transforms
@@ -176,14 +177,11 @@ def cost_point_to_point(pred, gt):
 
 
 def get_tab_metrics_for_I(pred, probas, gt, thresh):
-    print("probas {}".format(probas))
     tab_metrics = np.empty((0, 7))
     pred = pred.numpy()
     idx = np.argsort(probas.flatten())[::-1]
     pred = pred[idx]
     probas = probas[idx]
-    print(f"pred: {pred}")
-    print(f"probas: {probas}")
 
     if gt.shape[0] != 0:
         tab = np.array([1, 0, 0, gt.shape[0], 0, 0, 0]).reshape((1, 7))
@@ -193,20 +191,11 @@ def get_tab_metrics_for_I(pred, probas, gt, thresh):
         tp, fp, fn, error_sum_x, error_sum_l1, error_sum_l2 = get_tp_fp_fn_err(
             pred[: i + 1, :], gt, thresh
         )
-        print(f"tp: {tp}, fp: {fp}, fn: {fn}")
-        print(
-            f"error_sum_x: {error_sum_x}, error_sum_l1: {error_sum_l1}, error_sum_l2: {error_sum_l2}"
-        )
         tab = np.array([proba[0], tp, fp, fn, error_sum_x, error_sum_l1, error_sum_l2])
-        print(f"tab: {tab}, shape {tab.shape}")
         tab = tab.reshape((1, 7))
-        print(f"tab: {tab}, shape {tab.shape}")
         tab_metrics = np.vstack((tab_metrics, tab))
 
-    print(f"tab_metrics: {tab_metrics}")
-
     tab_metrics = diff_tab_metrics(tab_metrics)
-    print(f"diff_tab_metrics: {tab_metrics}")
 
     return tab_metrics
 
@@ -246,12 +235,7 @@ def get_tp_fp_fn_err(pred, gt, thresh):
     if gt.shape[0] == 0:
         return 0, pred.shape[0], 0, 0, 0, 0
 
-    print(f"pred for matching: {pred}")
-    print(f"gt for matching: {gt}")
     pred_ind, gt_ind = hungarian_matching(pred, gt, thresh)
-
-    print(f"pred_ind: {pred_ind}")
-    print(f"gt_ind: {gt_ind}")
 
     for p_ind, g_ind in zip(pred_ind, gt_ind):
         dist = cost_point_to_point(pred[p_ind], gt[g_ind])
@@ -260,9 +244,6 @@ def get_tp_fp_fn_err(pred, gt, thresh):
             error_sum_x += abs(pred[p_ind][0] - gt[g_ind][0])
             error_sum_l1 += np.linalg.norm(pred[p_ind] - gt[g_ind], ord=1)
             error_sum_l2 += np.linalg.norm(pred[p_ind] - gt[g_ind], ord=2)
-            print(
-                f"error_sum_x: {error_sum_x}, error_sum_l1: {error_sum_l1}, error_sum_l2: {error_sum_l2}"
-            )
         else:
             fp += 1
     fn = gt.shape[0] - tp
@@ -281,7 +262,6 @@ def get_recall_precision(tp, fp, fn):
 def get_tab_metrics_for_all_I(tab):
     idx = np.argsort(tab[:, 0])[::-1]
     tab = tab[idx]
-    print(f"tab oredered: {tab}")
 
     tab_with_unique_score = tab[0, :].reshape((1, 7))
     ind = 0
@@ -292,12 +272,10 @@ def get_tab_metrics_for_all_I(tab):
         else:
             tab_with_unique_score[ind, :] = tab_with_unique_score[ind, :] + tab[i, :]
             tab_with_unique_score[ind, 0] = tab[i, 0]
-    print(f"tab_with_unique_score: {tab_with_unique_score}")
 
     tab_cummulate = tab_with_unique_score
     for i in range(1, tab_cummulate.shape[0]):
         tab_cummulate[i, 1:] = tab_cummulate[i, 1:] + tab_cummulate[i - 1, 1:]
-    print(f"tab oredered cummulate: {tab_cummulate}")
 
     tab_with_precision_and_recall = np.empty((0, 6))
     for i in range(tab_cummulate.shape[0]):
@@ -311,12 +289,11 @@ def get_tab_metrics_for_all_I(tab):
         t = np.hstack((t, tab_cummulate[i, 4:7]))
         tab_with_precision_and_recall = np.vstack((tab_with_precision_and_recall, t))
 
-    print(f"tab_with_precision_and_recall: {tab_with_precision_and_recall}")
     return tab_with_precision_and_recall
 
 
 def plot_AP_curve(tab):
-    plt.plot(tab[:, 1], tab[:, 2])
+    plt.plot(tab[:, 2], tab[:, 1])
     plt.xlabel("Recall")
     plt.ylabel("Precision")
     plt.title("AP curve")
@@ -428,6 +405,10 @@ def infer(images_path, model, postprocessors, device, output_path):
     # compute precision and recall
     tab_all_metrics = get_tab_metrics_for_all_I(tab_all_metrics)
     plot_AP_curve(tab_all_metrics)
+    print(f"score, precision, recall, MAEx, MAE_L1, MAE_L2:")
+    print(f"tab_all_metrics: {tab_all_metrics}")
+    AUC = sklearn.metrics.auc(tab_all_metrics[2], tab_all_metrics[1])
+    print(f"AUC: {AUC}")
 
     avg_duration = duration / len(images_path)
     print("Avg. Time: {:.3f}s".format(avg_duration))
