@@ -177,7 +177,7 @@ def cost_point_to_point(pred, gt):
 
 def get_tab_metrics_for_I(pred, probas, gt, thresh):
     print("probas {}".format(probas))
-    tab_metrics = np.empty((0, 8))
+    tab_metrics = np.empty((0, 7))
     pred = pred.numpy()
     idx = np.argsort(probas.flatten())[::-1]
     pred = pred[idx]
@@ -186,20 +186,20 @@ def get_tab_metrics_for_I(pred, probas, gt, thresh):
     print(f"probas: {probas}")
 
     if gt.shape[0] != 0:
-        tab = np.array([1, 0, 0, gt.shape[0], 0, 0, 0, 0]).reshape((1, 8))
+        tab = np.array([1, 0, 0, gt.shape[0], 0, 0, 0]).reshape((1, 7))
         tab_metrics = np.vstack((tab_metrics, tab))
 
     for i, proba in enumerate(probas):
-        tp, fp, fn, error_sum_x, error_sum_l1, error_sum_l2, nb_matches = get_tp_fp_fn_err(
+        tp, fp, fn, error_sum_x, error_sum_l1, error_sum_l2 = get_tp_fp_fn_err(
             pred[: i + 1, :], gt, thresh
         )
-        print(f"tp: {tp}, fp: {fp}, fn: {fn}, nb_matches: {nb_matches}")
+        print(f"tp: {tp}, fp: {fp}, fn: {fn}")
         print(
             f"error_sum_x: {error_sum_x}, error_sum_l1: {error_sum_l1}, error_sum_l2: {error_sum_l2}"
         )
-        tab = np.array([proba[0], tp, fp, fn, error_sum_x, error_sum_l1, error_sum_l2, nb_matches])
+        tab = np.array([proba[0], tp, fp, fn, error_sum_x, error_sum_l1, error_sum_l2])
         print(f"tab: {tab}, shape {tab.shape}")
-        tab = tab.reshape((1, 8))
+        tab = tab.reshape((1, 7))
         print(f"tab: {tab}, shape {tab.shape}")
         tab_metrics = np.vstack((tab_metrics, tab))
 
@@ -244,7 +244,7 @@ def get_tp_fp_fn_err(pred, gt, thresh):
     error_sum_l2 = 0
 
     if gt.shape[0] == 0:
-        return 0, pred.shape[0], 0, 0, 0, 0, 0
+        return 0, pred.shape[0], 0, 0, 0, 0
 
     print(f"pred for matching: {pred}")
     print(f"gt for matching: {gt}")
@@ -283,7 +283,7 @@ def get_tab_metrics_for_all_I(tab):
     tab = tab[idx]
     print(f"tab oredered: {tab}")
 
-    tab_with_unique_score = tab[0, :].reshape((1, 8))
+    tab_with_unique_score = tab[0, :].reshape((1, 7))
     ind = 0
     for i in range(1, tab.shape[0]):
         if tab[i, 0] != tab[i - 1, 0]:
@@ -298,17 +298,16 @@ def get_tab_metrics_for_all_I(tab):
     for i in range(1, tab_cummulate.shape[0]):
         tab_cummulate[i, 1:] = tab_cummulate[i, 1:] + tab_cummulate[i - 1, 1:]
     print(f"tab oredered cummulate: {tab_cummulate}")
-    print(f"tab oredered cummulate: {tab_cummulate.astype(np.float32)}")
 
     tab_with_precision_and_recall = np.empty((0, 6))
     for i in range(tab_cummulate.shape[0]):
-        tab_cummulate[i, 4] = tab_cummulate[i, 4] / tab_cummulate[i, 7]
-        tab_cummulate[i, 5] = tab_cummulate[i, 5] / tab_cummulate[i, 7]
-        tab_cummulate[i, 6] = tab_cummulate[i, 6] / tab_cummulate[i, 7]
+        tab_cummulate[i, 4] = tab_cummulate[i, 4] / tab_cummulate[i, 1]
+        tab_cummulate[i, 5] = tab_cummulate[i, 5] / tab_cummulate[i, 1]
+        tab_cummulate[i, 6] = tab_cummulate[i, 6] / tab_cummulate[i, 1]
         recall, precision = get_recall_precision(
             tab_cummulate[i, 1], tab_cummulate[i, 2], tab_cummulate[i, 3]
         )
-        t = np.array([tab_cummulate[i, 0], recall, precision])
+        t = np.array([tab_cummulate[i, 0], precision, recall])
         t = np.hstack((t, tab_cummulate[i, 4:7]))
         tab_with_precision_and_recall = np.vstack((tab_with_precision_and_recall, t))
 
@@ -317,7 +316,7 @@ def get_tab_metrics_for_all_I(tab):
 
 
 def plot_AP_curve(tab):
-    plt.plot(tab[:, 4], tab[:, 5])
+    plt.plot(tab[:, 1], tab[:, 2])
     plt.xlabel("Recall")
     plt.ylabel("Precision")
     plt.title("AP curve")
@@ -337,7 +336,7 @@ def infer(images_path, model, postprocessors, device, output_path):
     error_sum_l1 = 0
     error_sum_l2 = 0
 
-    tab_all_metrics = np.empty((0, 8))
+    tab_all_metrics = np.empty((0, 7))
 
     for i, img_sample in enumerate(images_path):
         filename = os.path.basename(img_sample)
@@ -423,14 +422,12 @@ def infer(images_path, model, postprocessors, device, output_path):
         n_pairwise_matches += tab_metrics.shape[0]
         print(f"End processing {filename}")
 
-        if i == 5:
+        if i == 20:
             break
 
     # compute precision and recall
     tab_all_metrics = get_tab_metrics_for_all_I(tab_all_metrics)
-    print("ok")
     plot_AP_curve(tab_all_metrics)
-    print("not ok")
 
     avg_duration = duration / len(images_path)
     print("Avg. Time: {:.3f}s".format(avg_duration))
