@@ -12,11 +12,12 @@ import sys
 import time
 from pathlib import Path
 from typing import Iterable
-
+from tqdm import tqdm
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import sklearn
+from sklearn.metrics import auc
 import torch
 import util.misc as utils
 from datasets.pole import make_Pole_transforms
@@ -141,7 +142,7 @@ def get_args_parser():
     parser.add_argument("--device", default="cuda", help="device to use for training / testing")
     parser.add_argument("--resume", default="", help="resume from checkpoint")
 
-    parser.add_argument("--thresh", default=0.5, type=float)
+    parser.add_argument("--thresh", default=0.2, type=float)
 
     parser.add_argument("--show", default=False, type=bool)
 
@@ -293,10 +294,13 @@ def get_tab_metrics_for_all_I(tab):
 
 
 def plot_AP_curve(tab):
-    plt.plot(tab[:, 2], tab[:, 1])
-    plt.xlabel("Recall")
-    plt.ylabel("Precision")
-    plt.title("AP curve")
+    fig, ax = plt.subplots()
+    ax.plot(tab[:, 2], tab[:, 1])
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_xlabel("Recall")
+    ax.set_ylabel("Precision")
+    ax.set_title("AP curve")
     plt.show()
 
 
@@ -315,7 +319,7 @@ def infer(images_path, model, postprocessors, device, output_path):
 
     tab_all_metrics = np.empty((0, 7))
 
-    for i, img_sample in enumerate(images_path):
+    for i, img_sample in tqdm(enumerate(images_path)):
         filename = os.path.basename(img_sample)
         # get the file name without extension
         file_basename = os.path.splitext(filename)[0]
@@ -391,23 +395,24 @@ def infer(images_path, model, postprocessors, device, output_path):
         print("Start matching")
         if bboxes_scaled.shape[0] == 0 and gt_data.shape[0] == 0:
             continue
-        tab_metrics = get_tab_metrics_for_I(bboxes_scaled, probas, gt_data, thresh=20)
+        tab_metrics = get_tab_metrics_for_I(bboxes_scaled, probas, gt_data, thresh=10)
         print("End matching")
 
         tab_all_metrics = np.vstack((tab_all_metrics, tab_metrics))
 
         n_pairwise_matches += tab_metrics.shape[0]
-        print(f"End processing {filename}")
-
-        if i == 20:
-            break
+        print(f"End")
 
     # compute precision and recall
     tab_all_metrics = get_tab_metrics_for_all_I(tab_all_metrics)
     plot_AP_curve(tab_all_metrics)
     print(f"score, precision, recall, MAEx, MAE_L1, MAE_L2:")
     print(f"tab_all_metrics: {tab_all_metrics}")
-    AUC = sklearn.metrics.auc(tab_all_metrics[2], tab_all_metrics[1])
+    t = np.array((tab_all_metrics[:,1], tab_all_metrics[:,2]))
+    idx = np.argsort(t[:,0].flatten())
+    t = t[idx]
+
+    AUC = auc(t[0], t[1])
     print(f"AUC: {AUC}")
 
     avg_duration = duration / len(images_path)
