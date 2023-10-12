@@ -19,6 +19,7 @@ import util.misc as utils
 from datasets.pole import make_Pole_transforms
 from models import build_model
 from PIL import Image
+from scipy.optimize import linear_sum_assignment
 
 
 def box_cxcywh_to_xyxy(x):
@@ -35,7 +36,7 @@ def rescale_bboxes(out_bbox, size):
 
 def get_images(in_path):
     img_files = []
-    for (dirpath, dirnames, filenames) in os.walk(in_path):
+    for dirpath, dirnames, filenames in os.walk(in_path):
         for file in filenames:
             filename, ext = os.path.splitext(file)
             ext = str.lower(ext)
@@ -46,7 +47,7 @@ def get_images(in_path):
 
 
 def get_err_sum(matching):
-    """ Compute the sum of the error in x """
+    """Compute the sum of the error in x"""
     error_sum_x = 0
     error_sum_l1 = 0
     error_sum_l2 = 0
@@ -57,7 +58,6 @@ def get_err_sum(matching):
         error_sum_l2 += np.linalg.norm(match[0] - match[1], ord=2)
 
     return error_sum_x, error_sum_l1, error_sum_l2
-
 
 
 def get_args_parser():
@@ -288,11 +288,7 @@ def infer(images_path, model, postprocessors, device, output_path):
         total_fp += len(l_fp)
         total_fn += len(l_fn)
 
-
-        
-
         if args.show:
-
             if len(l_tp) + len(l_fp) + len(l_fn) == 0:
                 continue
 
@@ -326,6 +322,10 @@ def infer(images_path, model, postprocessors, device, output_path):
     print("MAE_x: {:.3f}, MAE_l1: {:.3f}, MAE_l2: {:.3f}".format(MAE_x, MAE_l1, MAE_l2))
 
 
+def cost_point_to_point(pred, gt):
+    return np.linalg.norm(pred - gt)
+
+
 # function that return number of true positives, false positives and false negatives
 def get_tp_fp_fn(pred, probas, gt, thresh):
     l_tp, l_fp, l_fn = [], [], []
@@ -336,27 +336,32 @@ def get_tp_fp_fn(pred, probas, gt, thresh):
     print(probas)
     idx = np.argsort(probas.flatten())[::-1]
     pred = pred[idx]
-    print(pred)
-    print(gt)
-    print(type(gt))
 
-    pred_copy = np.copy(pred)
-    gt_copy = np.copy(gt)
-    print(type(gt_copy))
-    for p in pred_copy:
-        for g in gt_copy:
-            dist = np.linalg.norm(p - g)
-            if dist < thresh:
-                gt_copy = np.delete(gt_copy, np.where(gt_copy == g)[0], axis=0)
-                pred_copy = np.delete(pred_copy, np.where(pred_copy == p)[0], axis=0)
-                l_tp.append(p)
-                matching.append((p, g))
-                break
+    cost_matrix = np.zeros((len(pred), len(gt)))
+
+    for i, p in enumerate(pred):
+        for j, g in enumerate(gt):
+            if cost_point_to_point(p, g) < thresh:
+                cost_matrix[i, j] = -1
+            else:
+                cost_matrix[i, j] = 0
+
+    # apply the hungarian algorithm
+    row_ind, col_ind = linear_sum_assignment(cost_matrix)
+
+    for row_i, col_i in zip(row_ind, col_ind):
+        dist = cost_point_to_point(pred[row_i] - gt[col_i])
+        if dist < thresh:
+            l_tp.append(pred[row_i])
+            matching.append((pred[row_i], gt[col_i]))
+            break
         else:
-            l_fp.append(p)
+            l_fp.append(pred[row_i])
+            l_fn.append(gt[col_i])
 
-    for g in gt_copy:
-        l_fn.append(g)
+    for g_i in range(len(gt)):
+        if g_i not in col_ind:
+            l_fn.append(gt[g_i])
 
     print("tp: {}, fp: {}, fn: {}".format(len(l_tp), len(l_fp), len(l_fn)))
 
