@@ -199,6 +199,10 @@ def infer(images_path, model, postprocessors, device, output_path):
     error_sum_x = 0
     error_sum_l1 = 0
     error_sum_l2 = 0
+    # create an array that will be of size 5xn storing the image basename, x_pred, y_pred, x_gt, y_gt (we dont know the size of n yet)
+    results = np.empty((0, 5), int)
+
+
 
     for img_sample in images_path:
         filename = os.path.basename(img_sample)
@@ -277,6 +281,10 @@ def infer(images_path, model, postprocessors, device, output_path):
         print("Start matching")
         l_tp, l_fp, l_fn, matching = get_tp_fp_fn(bboxes_scaled, probas, gt_data, 10)
         print("End matching")
+        
+        # add the matching results to the results array
+        for match in matching:
+            results = np.append(results, [[file_basename, match[0][0], match[0][1], match[1][0], match[1][1]]], axis=0)
 
         n_pairwise_matches += len(matching)
         err_x, err_l1, err_l2 = get_err_sum(matching)
@@ -320,6 +328,10 @@ def infer(images_path, model, postprocessors, device, output_path):
     print("Avg. Time: {:.3f}s".format(avg_duration))
     print("Recall: {:.3f}, Precision: {:.3f}".format(recall, precision))
     print("MAE_x: {:.3f}, MAE_l1: {:.3f}, MAE_l2: {:.3f}".format(MAE_x, MAE_l1, MAE_l2))
+
+    # save the results in a csv file with a header (basename, x_pred, y_pred, x_gt, y_gt)
+    csv_file = os.path.join(output_path, "matching_results.csv")
+    np.savetxt(csv_file, results, delimiter=",", fmt="%s", header="basename,x_pred,y_pred,x_gt,y_gt")
 
 
 def cost_point_to_point(pred, gt):
