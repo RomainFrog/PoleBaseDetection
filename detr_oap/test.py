@@ -362,7 +362,7 @@ def get_tp_fp_fn(pred, probas, gt, thresh):
     row_ind, col_ind = linear_sum_assignment(cost_matrix)
 
     for row_i, col_i in zip(row_ind, col_ind):
-        dist = cost_point_to_point(pred[row_i] - gt[col_i])
+        dist = cost_point_to_point(pred[row_i], gt[col_i])
         if dist < thresh:
             l_tp.append(pred[row_i])
             matching.append((pred[row_i], gt[col_i]))
