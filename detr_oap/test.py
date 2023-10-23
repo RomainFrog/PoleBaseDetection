@@ -213,10 +213,10 @@ def nearest_neighbor_matching(pred, gt, thresh):
         for g in gt_copy:
             dist = cost_point_to_point(p, g)
             if dist <= thresh:
-                row_ind.append(np.where(pred == p)[0][0])
-                col_ind.append(np.where(gt == g)[0][0])
                 gt_copy = np.delete(gt_copy, np.where(gt_copy == g)[0], axis=0)
                 pred_copy = np.delete(pred_copy, np.where(pred_copy == p)[0], axis=0)
+                row_ind.append(np.where(pred == p)[0][0])
+                col_ind.append(np.where(gt == g)[0][0])
                 break
         else:
             row_ind.append(np.where(pred == p)[0][0])
