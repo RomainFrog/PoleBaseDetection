@@ -22,44 +22,6 @@ from PIL import Image
 from scipy.optimize import linear_sum_assignment
 
 
-def box_cxcywh_to_xyxy(x):
-    x_c, y_c, w, h = x.unbind(1)
-    b = [(x_c - 0.5 * w), (y_c - 0.5 * h), (x_c + 0.5 * w), (y_c + 0.5 * h)]
-    return torch.stack(b, dim=1)
-
-
-def rescale_bboxes(out_bbox, size):
-    img_w, img_h = size
-    b = out_bbox * torch.tensor([img_w, img_h], dtype=torch.float32)
-    return b
-
-
-def get_images(in_path):
-    img_files = []
-    for dirpath, dirnames, filenames in os.walk(in_path):
-        for file in filenames:
-            filename, ext = os.path.splitext(file)
-            ext = str.lower(ext)
-            if ext == ".jpg" or ext == ".jpeg" or ext == ".gif" or ext == ".png" or ext == ".pgm":
-                img_files.append(os.path.join(dirpath, file))
-
-    return img_files
-
-
-def get_err_sum(matching):
-    """Compute the sum of the error in x"""
-    error_sum_x = 0
-    error_sum_l1 = 0
-    error_sum_l2 = 0
-    for match in matching:
-        print(match)
-        error_sum_x += abs(match[0][0] - match[1][0])
-        error_sum_l1 += np.linalg.norm(match[0] - match[1], ord=1)
-        error_sum_l2 += np.linalg.norm(match[0] - match[1], ord=2)
-
-    return error_sum_x, error_sum_l1, error_sum_l2
-
-
 def get_args_parser():
     parser = argparse.ArgumentParser("Set transformer detector", add_help=False)
     parser.add_argument("--lr", default=1e-4, type=float)
@@ -183,8 +145,113 @@ def get_args_parser():
     return parser
 
 
+def rescale_prediction(output, size):
+    """ Rescales the output keypoint coordinates to the target image size."""
+    img_w, img_h = size
+    res = output * torch.tensor([img_w, img_h], dtype=torch.float32)
+    return res
+
+
+def get_images(in_path):
+    """ Get all the images in the given path """
+    img_files = []
+    for dirpath, dirnames, filenames in os.walk(in_path):
+        for file in filenames:
+            filename, ext = os.path.splitext(file)
+            ext = str.lower(ext)
+            if ext == ".jpg" or ext == ".jpeg" or ext == ".gif" or ext == ".png" or ext == ".pgm":
+                img_files.append(os.path.join(dirpath, file))
+
+    return img_files
+
+
+def get_err_sum(matching):
+    """Compute the sum of the error in x"""
+    error_sum_x = 0
+    error_sum_l1 = 0
+    error_sum_l2 = 0
+    for match in matching:
+        print(match)
+        error_sum_x += abs(match[0][0] - match[1][0])
+        error_sum_l1 += np.linalg.norm(match[0] - match[1], ord=1)
+        error_sum_l2 += np.linalg.norm(match[0] - match[1], ord=2)
+
+    return error_sum_x, error_sum_l1, error_sum_l2
+
+
+def cost_point_to_point(pred, gt):
+    """ Compute the cost between two points"""
+    return np.linalg.norm(pred - gt, ord=2)
+
+
+def hungarian_matching(pred, gt, thresh):
+    """Hungarian matching algorithm"""
+    # compute the cost matrix
+    cost_matrix = np.zeros((len(pred), len(gt)))
+
+    for i, p in enumerate(pred):
+        for j, g in enumerate(gt):
+            if cost_point_to_point(p, g) < thresh:
+                cost_matrix[i, j] = cost_point_to_point(p,g)
+            else:
+                cost_matrix[i, j] = np.Inf
+
+    # apply the hungarian algorithm
+    row_ind, col_ind = linear_sum_assignment(cost_matrix)
+
+    return row_ind, col_ind
+
+
+# function that return number of true positives, false positives and false negatives
+def get_tp_fp_fn(pred, probas, gt, thresh):
+    """ Get the true positives, false positives and false negatives """
+    l_tp, l_fp, l_fn = [], [], []
+    matching = []
+
+    pred = pred.numpy()
+    print(pred)
+    print(probas)
+    idx = np.argsort(probas.flatten())[::-1]
+    pred = pred[idx]
+
+    row_ind, col_ind = hungarian_matching(pred, gt, thresh)
+
+    for row_i, col_i in zip(row_ind, col_ind):
+        dist = cost_point_to_point(pred[row_i] - gt[col_i])
+        if dist < thresh:
+            l_tp.append(pred[row_i])
+            matching.append((pred[row_i], gt[col_i]))
+            break
+        else:
+            l_fp.append(pred[row_i])
+            l_fn.append(gt[col_i])
+
+    for g_i in range(len(gt)):
+        if g_i not in col_ind:
+            l_fn.append(gt[g_i])
+
+    print("tp: {}, fp: {}, fn: {}".format(len(l_tp), len(l_fp), len(l_fn)))
+
+    return l_tp, l_fp, l_fn, matching
+
+
+# get recall and precision
+def get_recall_precision(tp, fp, fn):
+    """ Compute the recall and precision """
+    if tp + fn == 0:
+        recall = 0
+    else:
+        recall = tp / (tp + fn)
+    if tp + fp == 0:
+        precision = 0
+    else:
+        precision = tp / (tp + fp)
+    return recall, precision
+
+
+
 @torch.no_grad()
-def infer(images_path, model, postprocessors, device, output_path):
+def infer(images_path, model, _, device, output_path):
     # load grount truth json from data_manual_annotations/val.json
     gt = "../data_manual_annotations/annotations_tx_reviewed_final"
 
@@ -194,15 +261,12 @@ def infer(images_path, model, postprocessors, device, output_path):
     total_fp = 0
     total_fn = 0
 
-    total = 0
     n_pairwise_matches = 0
     error_sum_x = 0
     error_sum_l1 = 0
     error_sum_l2 = 0
     # create an array that will be of size 5xn storing the image basename, x_pred, y_pred, x_gt, y_gt (we dont know the size of n yet)
     results = np.empty((0, 5), int)
-
-
 
     for img_sample in images_path:
         filename = os.path.basename(img_sample)
@@ -236,18 +300,6 @@ def infer(images_path, model, postprocessors, device, output_path):
         image = image.unsqueeze(0)
         image = image.to(device)
 
-        conv_features, enc_attn_weights, dec_attn_weights = [], [], []
-        hooks = [
-            model.backbone[-2].register_forward_hook(
-                lambda self, input, output: conv_features.append(output)
-            ),
-            model.transformer.encoder.layers[-1].self_attn.register_forward_hook(
-                lambda self, input, output: enc_attn_weights.append(output[1])
-            ),
-            model.transformer.decoder.layers[-1].multihead_attn.register_forward_hook(
-                lambda self, input, output: dec_attn_weights.append(output[1])
-            ),
-        ]
 
         print("Start inference")
         start_t = time.perf_counter()
@@ -265,18 +317,8 @@ def infer(images_path, model, postprocessors, device, output_path):
         keep = probas.max(-1).values > args.thresh
 
         # Scale bbox to the same size as the original
-        bboxes_scaled = rescale_bboxes(outputs["pred_boxes"][0, keep], orig_image.size)
+        bboxes_scaled = rescale_prediction(outputs["pred_boxes"][0, keep], orig_image.size)
         probas = probas[keep].cpu().data.numpy()
-
-        for hook in hooks:
-            hook.remove()
-
-        conv_features = conv_features[0]
-        enc_attn_weights = enc_attn_weights[0]
-        dec_attn_weights = dec_attn_weights[0].cpu()
-
-        # get the feature map shape
-        h, w = conv_features["0"].tensors.shape[-2:]
 
         print("Start matching")
         l_tp, l_fp, l_fn, matching = get_tp_fp_fn(bboxes_scaled, probas, gt_data, 10)
@@ -334,58 +376,7 @@ def infer(images_path, model, postprocessors, device, output_path):
     np.savetxt(csv_file, results, delimiter=",", fmt="%s", header="basename,x_pred,y_pred,x_gt,y_gt")
 
 
-def cost_point_to_point(pred, gt):
-    return np.linalg.norm(pred - gt)
 
-
-# function that return number of true positives, false positives and false negatives
-def get_tp_fp_fn(pred, probas, gt, thresh):
-    l_tp, l_fp, l_fn = [], [], []
-    matching = []
-
-    pred = pred.numpy()
-    print(pred)
-    print(probas)
-    idx = np.argsort(probas.flatten())[::-1]
-    pred = pred[idx]
-
-    cost_matrix = np.zeros((len(pred), len(gt)))
-
-    for i, p in enumerate(pred):
-        for j, g in enumerate(gt):
-            if cost_point_to_point(p, g) < thresh:
-                cost_matrix[i, j] = -1
-            else:
-                cost_matrix[i, j] = 0
-
-    # apply the hungarian algorithm
-    row_ind, col_ind = linear_sum_assignment(cost_matrix)
-
-    for row_i, col_i in zip(row_ind, col_ind):
-        dist = cost_point_to_point(pred[row_i] - gt[col_i])
-        if dist < thresh:
-            l_tp.append(pred[row_i])
-            matching.append((pred[row_i], gt[col_i]))
-            break
-        else:
-            l_fp.append(pred[row_i])
-            l_fn.append(gt[col_i])
-
-    for g_i in range(len(gt)):
-        if g_i not in col_ind:
-            l_fn.append(gt[g_i])
-
-    print("tp: {}, fp: {}, fn: {}".format(len(l_tp), len(l_fp), len(l_fn)))
-
-    return l_tp, l_fp, l_fn, matching
-
-
-# get recall and precision
-def get_recall_precision(tp, fp, fn):
-    recall = tp / (tp + fn)
-    precision = tp / (tp + fp)
-
-    return recall, precision
 
 
 if __name__ == "__main__":
