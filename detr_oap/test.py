@@ -203,8 +203,27 @@ def hungarian_matching(pred, gt, thresh):
     return row_ind, col_ind
 
 
+def nearest_neighbor_matching(pred, gt, thresh):
+    """Nearest neighbor matching algorithm"""
+    row_ind = []
+    col_ind = []
+    for i, p in enumerate(pred):
+        min_dist = math.inf
+        min_idx = -1
+        for j, g in enumerate(gt):
+            dist = cost_point_to_point(p, g)
+            if dist < min_dist:
+                min_dist = dist
+                min_idx = j
+        if min_dist < thresh:
+            row_ind.append(i)
+            col_ind.append(min_idx)
+
+    return row_ind, col_ind
+
+
 # function that return number of true positives, false positives and false negatives
-def get_tp_fp_fn(pred, probas, gt, thresh):
+def get_tp_fp_fn(pred, probas, gt, thresh, matching_func=hungarian_matching):
     """ Get the true positives, false positives and false negatives """
     l_tp, l_fp, l_fn = [], [], []
     matching = []
@@ -215,7 +234,7 @@ def get_tp_fp_fn(pred, probas, gt, thresh):
     idx = np.argsort(probas.flatten())[::-1]
     pred = pred[idx]
 
-    row_ind, col_ind = hungarian_matching(pred, gt, thresh)
+    row_ind, col_ind = matching_func(pred, gt, thresh)
 
     for row_i, col_i in zip(row_ind, col_ind):
         dist = cost_point_to_point(pred[row_i], gt[col_i])
@@ -314,16 +333,13 @@ def infer(images_path, model, _, device, output_path):
         outputs["pred_boxes"] = outputs["pred_boxes"].cpu()
 
         probas = outputs["pred_logits"].softmax(-1)[0, :, :-1]
-        # keep = probas.max(-1).values > 0.85
         keep = probas.max(-1).values > args.thresh
 
         # Scale bbox to the same size as the original
         bboxes_scaled = rescale_prediction(outputs["pred_boxes"][0, keep], orig_image.size)
         probas = probas[keep].cpu().data.numpy()
 
-        print("Start matching")
-        l_tp, l_fp, l_fn, matching = get_tp_fp_fn(bboxes_scaled, probas, gt_data, 10)
-        print("End matching")
+        l_tp, l_fp, l_fn, matching = get_tp_fp_fn(bboxes_scaled, probas, gt_data, 10, matching_func=nearest_neighbor_matching)
         
         # add the matching results to the results array
         for match in matching:
