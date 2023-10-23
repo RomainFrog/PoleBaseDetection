@@ -192,11 +192,12 @@ def hungarian_matching(pred, gt, thresh):
     for i, p in enumerate(pred):
         for j, g in enumerate(gt):
             if cost_point_to_point(p, g) < thresh:
-                cost_matrix[i, j] = cost_point_to_point(p,g)
+                cost_matrix[i, j] = - 1/ cost_point_to_point(p,g)
             else:
-                cost_matrix[i, j] = np.Inf
+                cost_matrix[i, j] = 0
 
     # apply the hungarian algorithm
+    print(cost_matrix)
     row_ind, col_ind = linear_sum_assignment(cost_matrix)
 
     return row_ind, col_ind
@@ -217,7 +218,7 @@ def get_tp_fp_fn(pred, probas, gt, thresh):
     row_ind, col_ind = hungarian_matching(pred, gt, thresh)
 
     for row_i, col_i in zip(row_ind, col_ind):
-        dist = cost_point_to_point(pred[row_i] - gt[col_i])
+        dist = cost_point_to_point(pred[row_i], gt[col_i])
         if dist < thresh:
             l_tp.append(pred[row_i])
             matching.append((pred[row_i], gt[col_i]))
