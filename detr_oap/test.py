@@ -202,22 +202,25 @@ def hungarian_matching(pred, gt, thresh):
 
     return row_ind, col_ind
 
-
 def nearest_neighbor_matching(pred, gt, thresh):
     """Nearest neighbor matching algorithm"""
     row_ind = []
     col_ind = []
-    for i, p in enumerate(pred):
-        min_dist = math.inf
-        min_idx = -1
-        for j, g in enumerate(gt):
+    pred_copy = np.copy(pred)
+    gt_copy = np.copy(gt)
+    # print(type(gt_copy))
+    for p in pred_copy:
+        for g in gt_copy:
             dist = cost_point_to_point(p, g)
-            if dist < min_dist:
-                min_dist = dist
-                min_idx = j
-        if min_dist < thresh:
-            row_ind.append(i)
-            col_ind.append(min_idx)
+            if dist <= thresh:
+                row_ind.append(np.where(pred == p)[0][0])
+                col_ind.append(np.where(gt == g)[0][0])
+                gt_copy = np.delete(gt_copy, np.where(gt_copy == g)[0], axis=0)
+                pred_copy = np.delete(pred_copy, np.where(pred_copy == p)[0], axis=0)
+                break
+        else:
+            row_ind.append(np.where(pred == p)[0][0])
+            col_ind.append(-1)
 
     return row_ind, col_ind
 
@@ -229,8 +232,8 @@ def get_tp_fp_fn(pred, probas, gt, thresh, matching_func=hungarian_matching):
     matching = []
 
     pred = pred.numpy()
-    print(pred)
-    print(probas)
+    # print(pred)
+    # print(probas)
     idx = np.argsort(probas.flatten())[::-1]
     pred = pred[idx]
 
