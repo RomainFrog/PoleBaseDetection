@@ -213,10 +213,10 @@ def nearest_neighbor_matching(pred, gt, thresh):
         for g in gt_copy:
             dist = cost_point_to_point(p, g)
             if dist <= thresh:
-                gt_copy = np.delete(gt_copy, np.where(gt_copy == g)[0], axis=0)
-                pred_copy = np.delete(pred_copy, np.where(pred_copy == p)[0], axis=0)
                 row_ind.append(np.where(pred == p)[0][0])
                 col_ind.append(np.where(gt == g)[0][0])
+                gt_copy = np.delete(gt_copy, np.where(gt_copy == g)[0], axis=0)
+                pred_copy = np.delete(pred_copy, np.where(pred_copy == p)[0], axis=0)
                 break
         else:
             row_ind.append(np.where(pred == p)[0][0])
@@ -238,13 +238,12 @@ def get_tp_fp_fn(pred, probas, gt, thresh, matching_func=hungarian_matching):
     pred = pred[idx]
 
     row_ind, col_ind = matching_func(pred, gt, thresh)
+    # print(row_ind, col_ind)
 
     for row_i, col_i in zip(row_ind, col_ind):
-        dist = cost_point_to_point(pred[row_i], gt[col_i])
-        if dist < thresh:
+        if cost_point_to_point(pred[row_i], gt[col_i]) <= thresh:
             l_tp.append(pred[row_i])
             matching.append((pred[row_i], gt[col_i]))
-            break
         else:
             l_fp.append(pred[row_i])
             l_fn.append(gt[col_i])
@@ -276,7 +275,7 @@ def get_recall_precision(tp, fp, fn):
 @torch.no_grad()
 def infer(images_path, model, _, device, output_path):
     # load grount truth json from data_manual_annotations/val.json
-    gt = "../data_manual_annotations/annotations_tx_reviewed_final"
+    gt_folder = "../data_manual_annotations/annotations_tx_reviewed_final"
 
     model.eval()
     duration = 0
@@ -296,7 +295,7 @@ def infer(images_path, model, _, device, output_path):
         # get the file name without extension
         file_basename = os.path.splitext(filename)[0]
         # get ground truth from csv file
-        gt_file = os.path.join(gt, file_basename + ".csv")
+        gt_file = os.path.join(gt_folder, file_basename + ".csv")
         if not os.path.exists(gt_file):
             continue
 
@@ -364,14 +363,24 @@ def infer(images_path, model, _, device, output_path):
 
             img = np.array(orig_image)
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            for tp in l_tp:
-                cv2.circle(img, (int(tp[0]), int(tp[1])), 2, (0, 0, 255), 2)  # red
+            # for tp in l_tp:
+            #     cv2.circle(img, (int(tp[0]), int(tp[1])), 2, (0, 0, 255), 2)  # red
 
-            for fp in l_fp:
-                cv2.circle(img, (int(fp[0]), int(fp[1])), 2, (255, 0, 0), 2)  # blue
+            # for fp in l_fp:
+            #     cv2.circle(img, (int(fp[0]), int(fp[1])), 2, (255, 0, 0), 2)  # blue
 
-            for fn in l_fn:
-                cv2.circle(img, (int(fn[0]), int(fn[1])), 2, (0, 255, 0), 2)  # green
+            # for fn in l_fn:
+            #     cv2.circle(img, (int(fn[0]), int(fn[1])), 2, (0, 255, 0), 2)  # green
+
+            # draw lines between the matching points
+            for match in matching:
+                cv2.line(img, (int(match[0][0]), int(match[0][1])), (int(match[1][0]), int(match[1][1])), (0, 0, 255), 1)
+
+            for gt in gt_data:
+                cv2.circle(img, (int(gt[0]), int(gt[1])), 2, (0, 255, 0), 2)
+
+            for pred in bboxes_scaled:
+                cv2.circle(img, (int(pred[0]), int(pred[1])), 2, (0, 0, 255), 2)
 
             # img_save_path = os.path.join(output_path, filename)
             # cv2.imwrite(img_save_path, img)
