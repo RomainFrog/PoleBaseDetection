@@ -1,4 +1,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
+# python test.py --data_path ../data_manual_annotations/images/val --resume ./checkpoint.pth --device cpu --backbone resnet101 --thresh_dist 20 --thresh 0.1 &
+
+
 """
 Train and eval functions used in main.py
 """
@@ -15,11 +18,12 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from PIL import Image
+from scipy.optimize import linear_sum_assignment
+
 import util.misc as utils
 from datasets.pole import make_Pole_transforms
 from models import build_model
-from PIL import Image
-from scipy.optimize import linear_sum_assignment
 
 
 def get_args_parser():
@@ -138,22 +142,23 @@ def get_args_parser():
     parser.add_argument("--device", default="cuda", help="device to use for training / testing")
     parser.add_argument("--resume", default="", help="resume from checkpoint")
 
-    parser.add_argument("--thresh", default=0.5, type=float)
-
+    parser.add_argument("--thresh", default=1e-10, type=float)
+    parser.add_argument("--thresh_dist", default=20, type=float)
+    parser.add_argument("--matching_method", default="hungarian_matching", type=str)
     parser.add_argument("--show", default=False, type=bool)
 
     return parser
 
 
 def rescale_prediction(output, size):
-    """ Rescales the output keypoint coordinates to the target image size."""
+    """Rescales the output keypoint coordinates to the target image size."""
     img_w, img_h = size
     res = output * torch.tensor([img_w, img_h], dtype=torch.float32)
     return res
 
 
 def get_images(in_path):
-    """ Get all the images in the given path """
+    """Get all the images in the given path"""
     img_files = []
     for dirpath, dirnames, filenames in os.walk(in_path):
         for file in filenames:
@@ -171,7 +176,6 @@ def get_err_sum(matching):
     error_sum_l1 = 0
     error_sum_l2 = 0
     for match in matching:
-        print(match)
         error_sum_x += abs(match[0][0] - match[1][0])
         error_sum_l1 += np.linalg.norm(match[0] - match[1], ord=1)
         error_sum_l2 += np.linalg.norm(match[0] - match[1], ord=2)
@@ -180,7 +184,7 @@ def get_err_sum(matching):
 
 
 def cost_point_to_point(pred, gt):
-    """ Compute the cost between two points"""
+    """Compute the cost between two points"""
     return np.linalg.norm(pred - gt, ord=2)
 
 
@@ -192,56 +196,66 @@ def hungarian_matching(pred, gt, thresh):
     for i, p in enumerate(pred):
         for j, g in enumerate(gt):
             if cost_point_to_point(p, g) < thresh:
-                cost_matrix[i, j] = - 1/ cost_point_to_point(p,g)
+                cost_matrix[i, j] = -1 / cost_point_to_point(p, g)
             else:
                 cost_matrix[i, j] = 0
 
     # apply the hungarian algorithm
-    print(cost_matrix)
     row_ind, col_ind = linear_sum_assignment(cost_matrix)
+
+    row_ind = list(row_ind)
+    col_ind = list(col_ind)
+
+    # when no matching add (row_ind, -1)
+    for i, _ in enumerate(pred):
+        if i not in row_ind:
+            row_ind.append(i)
+            col_ind.append(-1)
 
     return row_ind, col_ind
 
+
 def nearest_neighbor_matching(pred, gt, thresh):
     """Nearest neighbor matching algorithm"""
-    row_ind = []
-    col_ind = []
-    pred_copy = np.copy(pred)
+    row_ind, col_ind = [], []
     gt_copy = np.copy(gt)
-    # print(type(gt_copy))
-    for p in pred_copy:
+
+    for p in pred:
         for g in gt_copy:
             dist = cost_point_to_point(p, g)
             if dist <= thresh:
                 row_ind.append(np.where(pred == p)[0][0])
                 col_ind.append(np.where(gt == g)[0][0])
                 gt_copy = np.delete(gt_copy, np.where(gt_copy == g)[0], axis=0)
-                pred_copy = np.delete(pred_copy, np.where(pred_copy == p)[0], axis=0)
                 break
-        else:
-            row_ind.append(np.where(pred == p)[0][0])
-            col_ind.append(-1)
+
+        row_ind.append(np.where(pred == p)[0][0])
+        col_ind.append(-1)
 
     return row_ind, col_ind
 
 
-# function that return number of true positives, false positives and false negatives
-def get_tp_fp_fn(pred, probas, gt, thresh, matching_func=hungarian_matching):
-    """ Get the true positives, false positives and false negatives """
+# function that return lists of true positives, false positives and false negatives
+# hungarian_matching or nearest_neighbor_matching
+def get_tp_fp_fn(pred, probas, gt, dist_thresh, matching_func):
+    """Get the list of true positives, false positives and false negatives"""
     l_tp, l_fp, l_fn = [], [], []
     matching = []
-
     pred = pred.numpy()
-    # print(pred)
-    # print(probas)
+    if matching_func in globals():
+        matching_func = globals()[matching_func]
+    else:
+        print(f"Function {matching_func} is not define.")
+
     idx = np.argsort(probas.flatten())[::-1]
     pred = pred[idx]
 
-    row_ind, col_ind = matching_func(pred, gt, thresh)
-    # print(row_ind, col_ind)
+    row_ind, col_ind = matching_func(pred, gt, dist_thresh)
 
     for row_i, col_i in zip(row_ind, col_ind):
-        if cost_point_to_point(pred[row_i], gt[col_i]) <= thresh:
+        if col_i == -1:
+            l_fp.append(pred[row_i])
+        elif cost_point_to_point(pred[row_i], gt[col_i]) <= dist_thresh:
             l_tp.append(pred[row_i])
             matching.append((pred[row_i], gt[col_i]))
         else:
@@ -252,14 +266,12 @@ def get_tp_fp_fn(pred, probas, gt, thresh, matching_func=hungarian_matching):
         if g_i not in col_ind:
             l_fn.append(gt[g_i])
 
-    print("tp: {}, fp: {}, fn: {}".format(len(l_tp), len(l_fp), len(l_fn)))
-
     return l_tp, l_fp, l_fn, matching
 
 
 # get recall and precision
 def get_recall_precision(tp, fp, fn):
-    """ Compute the recall and precision """
+    """Compute the recall and precision"""
     if tp + fn == 0:
         recall = 0
     else:
@@ -271,38 +283,31 @@ def get_recall_precision(tp, fp, fn):
     return recall, precision
 
 
-
 @torch.no_grad()
 def infer(images_path, model, _, device, output_path):
     # load grount truth json from data_manual_annotations/val.json
     gt_folder = "../data_manual_annotations/annotations_tx_reviewed_final"
 
     model.eval()
-    duration = 0
-    total_tp = 0
-    total_fp = 0
-    total_fn = 0
 
+    # intialisations values
+    duration = 0
+    total_tp, total_fp, total_fn = 0, 0, 0
     n_pairwise_matches = 0
-    error_sum_x = 0
-    error_sum_l1 = 0
-    error_sum_l2 = 0
-    # create an array that will be of size 5xn storing the image basename, x_pred, y_pred, x_gt, y_gt (we dont know the size of n yet)
+    error_sum_x, error_sum_l1, error_sum_l2 = 0, 0, 0
+    # array size 5xn storing the image_basename, x_pred, y_pred, x_gt, y_gt
     results = np.empty((0, 5), int)
 
-    for img_sample in images_path:
+    for i, img_sample in enumerate(images_path):
         filename = os.path.basename(img_sample)
-        # get the file name without extension
-        file_basename = os.path.splitext(filename)[0]
-        # get ground truth from csv file
-        gt_file = os.path.join(gt_folder, file_basename + ".csv")
-        if not os.path.exists(gt_file):
-            continue
+        file_basename = os.path.splitext(filename)[0]  # get the file name without extension
+        gt_file = os.path.join(gt_folder, file_basename + ".csv")  # get ground truth from csv file
 
         print("processing...{}".format(filename))
-        # if the file doesn't have any ground truth
-        if os.path.getsize(gt_file) <= 14:
+        # if the file doesn't exist or have any ground truth
+        if not os.path.exists(gt_file) or os.path.getsize(gt_file) <= 14:
             gt_data = np.array([])
+
         else:
             # read csv file data (skip first line)
             gt_data = np.genfromtxt(gt_file, delimiter=",", skip_header=1, usecols=[1, 2]).astype(
@@ -322,7 +327,6 @@ def infer(images_path, model, _, device, output_path):
         image = image.unsqueeze(0)
         image = image.to(device)
 
-
         print("Start inference")
         start_t = time.perf_counter()
         outputs = model(image)
@@ -338,14 +342,20 @@ def infer(images_path, model, _, device, output_path):
         keep = probas.max(-1).values > args.thresh
 
         # Scale bbox to the same size as the original
-        bboxes_scaled = rescale_prediction(outputs["pred_boxes"][0, keep], orig_image.size)
+        points_scaled = rescale_prediction(outputs["pred_boxes"][0, keep], orig_image.size)
         probas = probas[keep].cpu().data.numpy()
 
-        l_tp, l_fp, l_fn, matching = get_tp_fp_fn(bboxes_scaled, probas, gt_data, 10, matching_func=nearest_neighbor_matching)
-        
+        l_tp, l_fp, l_fn, matching = get_tp_fp_fn(
+            points_scaled, probas, gt_data, args.thresh_dist, args.matching_method
+        )
+
         # add the matching results to the results array
         for match in matching:
-            results = np.append(results, [[file_basename, match[0][0], match[0][1], match[1][0], match[1][1]]], axis=0)
+            results = np.append(
+                results,
+                [[file_basename, match[0][0], match[0][1], match[1][0], match[1][1]]],
+                axis=0,
+            )
 
         n_pairwise_matches += len(matching)
         err_x, err_l1, err_l2 = get_err_sum(matching)
@@ -374,12 +384,18 @@ def infer(images_path, model, _, device, output_path):
 
             # draw lines between the matching points
             for match in matching:
-                cv2.line(img, (int(match[0][0]), int(match[0][1])), (int(match[1][0]), int(match[1][1])), (0, 0, 255), 1)
+                cv2.line(
+                    img,
+                    (int(match[0][0]), int(match[0][1])),
+                    (int(match[1][0]), int(match[1][1])),
+                    (0, 0, 255),
+                    1,
+                )
 
             for gt in gt_data:
                 cv2.circle(img, (int(gt[0]), int(gt[1])), 2, (0, 255, 0), 2)
 
-            for pred in bboxes_scaled:
+            for pred in points_scaled:
                 cv2.circle(img, (int(pred[0]), int(pred[1])), 2, (0, 0, 255), 2)
 
             # img_save_path = os.path.join(output_path, filename)
@@ -402,8 +418,9 @@ def infer(images_path, model, _, device, output_path):
 
     # save the results in a csv file with a header (basename, x_pred, y_pred, x_gt, y_gt)
     csv_file = os.path.join(output_path, "matching_results.csv")
-    np.savetxt(csv_file, results, delimiter=",", fmt="%s", header="basename,x_pred,y_pred,x_gt,y_gt")
-
+    np.savetxt(
+        csv_file, results, delimiter=",", fmt="%s", header="basename,x_pred,y_pred,x_gt,y_gt"
+    )
 
 
 if __name__ == "__main__":
