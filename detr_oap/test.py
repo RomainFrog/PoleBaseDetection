@@ -266,6 +266,7 @@ def get_tp_fp_fn(pred, probas, gt, dist_thresh, matching_func):
         if g_i not in col_ind:
             l_fn.append(gt[g_i])
 
+    print(f"TP: {len(l_tp)}, FP: {len(l_fp)}, FN: {len(l_fn)}")
     return l_tp, l_fp, l_fn, matching
 
 
@@ -286,7 +287,7 @@ def get_recall_precision(tp, fp, fn):
 @torch.no_grad()
 def infer(images_path, model, _, device, output_path):
     # load grount truth json from data_manual_annotations/val.json
-    gt_folder = "../data_manual_annotations/annotations_tx_reviewed_final"
+    gt_folder = "../data_manual_annotations/final_dataset"
 
     model.eval()
 

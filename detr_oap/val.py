@@ -211,7 +211,7 @@ def hungarian_matching(pred, gt, tresh):
     for i, p in enumerate(pred):
         for j, g in enumerate(gt):
             if cost_point_to_point(p, g) < tresh:
-                cost_matrix[i, j] = -1
+                cost_matrix[i, j] = - 1/ cost_point_to_point(p,g)
             else:
                 cost_matrix[i, j] = 0
 
@@ -302,7 +302,7 @@ def plot_AP_curve(tab):
 @torch.no_grad()
 def infer(images_path, model, postprocessors, device, output_path):
     # load grount truth json from data_manual_annotations/val.json
-    gt = "../data_manual_annotations/annotations_tx_reviewed_final"
+    gt = "../data_manual_annotations/final_dataset"
 
     model.eval()
     duration = 0

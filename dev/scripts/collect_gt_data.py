@@ -35,5 +35,5 @@ def main(gt_folder):
 
 
 if __name__ == '__main__':
-    gt_folder = '../../data_manual_annotations/annotations_tx_reviewed_final/'
+    gt_folder = '../../data_manual_annotations/final_dataset/'
     main(gt_folder)
