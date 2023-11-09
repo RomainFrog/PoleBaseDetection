@@ -20,24 +20,24 @@ def evaluate(model, dataloader, device):
 
     total_tp, total_fp, total_fn = 0, 0, 0
     n_pairwise_matches = 0
-    error_sum_x = 0,
+    error_sum_x = 0
 
     model.eval()
 
     for samples, targets in dataloader:
         # /!\ targets is still in shape of bbox and we only need to keep
-        # the first two coordinates (x, y)
-        w,h = samples.size
-        # transform = make_Pole_transforms("val")
-        # dummy_target = {
-        #     "size": torch.as_tensor([int(h), int(w)]),
-        #     "orig_size": torch.as_tensor([int(h), int(w)]),
-        # }
-        # image, _ = transform(samples, dummy_target)
-        # image = image.unsqueeze(0)
-        # image = image.to(device)
+        # the first two coordinates (x, y)$
+        w, h = samples.size
+        transform = make_Pole_transforms("val")
+        dummy_target = {
+            "size": torch.as_tensor([int(h), int(w)]),
+            "orig_size": torch.as_tensor([int(h), int(w)]),
+        }
+        image, _ = transform(samples, dummy_target)
+        image = image.unsqueeze(0).to(device)
 
-        outputs = model(samples)
+
+        outputs = model(image)
 
         outputs["pred_logits"] = outputs["pred_logits"].cpu()
         outputs["pred_boxes"] = outputs["pred_boxes"].cpu()
@@ -49,8 +49,9 @@ def evaluate(model, dataloader, device):
         points_scaled = rescale_prediction(outputs["pred_boxes"][0, keep], samples.size)
         probas = probas[keep].cpu().data.numpy()
 
+        gt_data = targets['boxes'].cpu().data.numpy()[:,:2]
         l_tp, l_fp, l_fn, matching = get_tp_fp_fn(
-            points_scaled, probas, targets, 10, hungarian_matching
+            points_scaled, probas, gt_data, 10, hungarian_matching
         )
 
         n_pairwise_matches += len(matching)
