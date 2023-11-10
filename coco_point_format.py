@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--data_dir", default="data_manual_annotations", help="data directory")
-parser.add_argument("--annotation_dir", default="annotations_tx_reviewed_final", help="annotation directory")
+parser.add_argument("--annotation_dir", default="final_dataset", help="annotation directory")
 args = parser.parse_args()
 
 data_dir = args.data_dir
@@ -63,6 +63,7 @@ for csv_file in tqdm(csv_files):
         filename = os.path.join(data_dir, img_dir, name_img)
 
         if not os.path.exists(filename):
+            print(f"File {filename} not found")
             continue
         height, width = Image.open(filename).size
         if count <= num_train_data:

@@ -4,6 +4,8 @@ from models import build_model
 from evaluate import evaluate
 from datasets.pole import make_Pole_transforms
 from datasets.pole import PoleDetection
+from datasets import build_dataset
+from torch.utils.data import DataLoader
 
 
 
@@ -149,10 +151,16 @@ if __name__ == "__main__":
 
     # create PoleDataset
     dataset_folder = args.data_path
-    val_dataset = PoleDetection(
-        dataset_folder + "/images", dataset_folder + "/val.json", transforms=None, 
-        return_masks=args.masks)
+    dataset_val = build_dataset(image_set='val', args=args)
+    sampler_val = torch.utils.data.SequentialSampler(dataset_val)
+    data_loader_val = DataLoader(dataset_val, 1, sampler=sampler_val,drop_last=False)
 
-    evaluate(model, val_dataset, device)
+    # val_dataset = PoleDetection(
+    #     dataset_folder + "/images/", dataset_folder + "/val.json", transforms=make_Pole_transforms("val"), 
+    #     return_masks=args.masks)
+    # display the number of images in the dataset
+    print("Number of images in the dataset:", len(data_loader_val))
+
+    evaluate(model, data_loader_val, device)
 
  

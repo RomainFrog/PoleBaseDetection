@@ -23,33 +23,38 @@ def evaluate(model, dataloader, device):
     error_sum_x = 0
 
     model.eval()
-
     for samples, targets in dataloader:
+        image = samples[0]
         # /!\ targets is still in shape of bbox and we only need to keep
         # the first two coordinates (x, y)$
-        w, h = samples.size
-        transform = make_Pole_transforms("val")
-        dummy_target = {
-            "size": torch.as_tensor([int(h), int(w)]),
-            "orig_size": torch.as_tensor([int(h), int(w)]),
-        }
-        image, _ = transform(samples, dummy_target)
-        image = image.unsqueeze(0).to(device)
+        h, w = image.shape[1:]
+        print(f"image_width = {w},image height = {h}")
+        # transform = make_Pole_transforms("val")
+        # dummy_target = {
+        #     "size": torch.as_tensor([int(h), int(w)]),
+        #     "orig_size": torch.as_tensor([int(h), int(w)]),
+        # }
+        # image, _ = transform(samples, dummy_target)
+        # image = image.unsqueeze(0).to(device)
 
 
-        outputs = model(image)
+        outputs = model(samples)
 
         outputs["pred_logits"] = outputs["pred_logits"].cpu()
         outputs["pred_boxes"] = outputs["pred_boxes"].cpu()
+
 
         probas = outputs["pred_logits"].softmax(-1)[0, :, :-1]
         keep = probas.max(-1).values > 0.85
 
         # Scale keypoints to the original image size
-        points_scaled = rescale_prediction(outputs["pred_boxes"][0, keep], samples.size)
+        points_scaled = rescale_prediction(outputs["pred_boxes"][0, keep], (w,h))
         probas = probas[keep].cpu().data.numpy()
 
         gt_data = targets['boxes'].cpu().data.numpy()[:,:2]
+        print(points_scaled)
+        print(gt_data)
+
         l_tp, l_fp, l_fn, matching = get_tp_fp_fn(
             points_scaled, probas, gt_data, 10, hungarian_matching
         )
