@@ -72,7 +72,7 @@ def nearest_neighbor_matching(pred, gt, thresh):
     return row_ind, col_ind
 
 
-def get_tp_fp_fn(pred, probas, gt, dist_thresh):
+def get_tp_fp_fn(pred, probas, gt, dist_thresh, logging = False):
     """Get the list of true positives, false positives and false negatives"""
     l_tp, l_fp, l_fn = [], [], []
     matching = []
@@ -96,8 +96,8 @@ def get_tp_fp_fn(pred, probas, gt, dist_thresh):
     for g_i in range(len(gt)):
         if g_i not in col_ind:
             l_fn.append(gt[g_i])
-
-    print(f"TP: {len(l_tp)}, FP: {len(l_fp)}, FN: {len(l_fn)}")
+    if logging:
+        print(f"TP: {len(l_tp)}, FP: {len(l_fp)}, FN: {len(l_fn)}")
     return l_tp, l_fp, l_fn, matching
 
 

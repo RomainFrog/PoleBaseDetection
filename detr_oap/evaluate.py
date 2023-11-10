@@ -6,15 +6,6 @@ from datasets.pole import make_Pole_transforms
 """
 This file will be used to evaluate the model on the validation set
 during training. It will be called after each epoch.
-
-The function will compute the following metrics:
-- Recall
-- Precision
-- F1 score
-- AUC (later)
-- MAE in x
-
-
 """
 
 @torch.no_grad()
@@ -65,6 +56,10 @@ def evaluate(model, dataloader, device):
 
     # compute precision and recall
     recall, precision = get_recall_precision(total_tp, total_fp, total_fn)
-    MAE_x = error_sum_x / n_pairwise_matches
+    if n_pairwise_matches == 0:
+        MAE_x = np.inf
+    else:
+        MAE_x = error_sum_x / n_pairwise_matches
 
-    return {"recall": recall, "precision": precision, "MAE_x": MAE_x}
+    metrics = {"recall": recall, "precision": precision, "MAE_x": MAE_x}
+    return metrics

@@ -2,7 +2,6 @@ import argparse
 import torch
 from models import build_model
 from evaluate import evaluate
-from datasets.pole import make_Pole_transforms
 from datasets.pole import PoleDetection
 
 """
