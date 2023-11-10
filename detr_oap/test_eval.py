@@ -4,9 +4,11 @@ from models import build_model
 from evaluate import evaluate
 from datasets.pole import make_Pole_transforms
 from datasets.pole import PoleDetection
-from datasets import build_dataset
-from torch.utils.data import DataLoader
 
+"""
+python test_eval.py --data_path ../data_manual_annotations --resume benchmark/detr_oap_300_epochs_r101_no_depth_loss_eos050_final_dataset/checkpoint.pth \
+    --num_queries 50 --dilation --backbone resnet101
+"""
 
 
 def get_args_parser():
@@ -129,6 +131,7 @@ def get_args_parser():
     parser.add_argument("--thresh_dist", default=20, type=float)
     parser.add_argument("--matching_method", default="hungarian_matching", type=str)
     parser.add_argument("--show", default=False, type=bool)
+    parser.add_argument("--logging_file", default="val_log.txt", type=str)
 
     return parser
 
@@ -151,16 +154,14 @@ if __name__ == "__main__":
 
     # create PoleDataset
     dataset_folder = args.data_path
-    dataset_val = build_dataset(image_set='val', args=args)
-    sampler_val = torch.utils.data.SequentialSampler(dataset_val)
-    data_loader_val = DataLoader(dataset_val, 1, sampler=sampler_val,drop_last=False)
+    val_dataset = PoleDetection(
+        dataset_folder + "/images", dataset_folder + "/val.json", transforms=None, 
+        return_masks=args.masks)
 
-    # val_dataset = PoleDetection(
-    #     dataset_folder + "/images/", dataset_folder + "/val.json", transforms=make_Pole_transforms("val"), 
-    #     return_masks=args.masks)
-    # display the number of images in the dataset
-    print("Number of images in the dataset:", len(data_loader_val))
-
-    evaluate(model, data_loader_val, device)
+    for _ in range(2):
+        metrics = evaluate(model, val_dataset, device)
+        # add metrics (dict) to file with name args.logging_file
+        with open(args.logging_file, "a") as f:
+            f.write(str(metrics) + "\n")
 
  

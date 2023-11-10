@@ -72,20 +72,16 @@ def nearest_neighbor_matching(pred, gt, thresh):
     return row_ind, col_ind
 
 
-def get_tp_fp_fn(pred, probas, gt, dist_thresh, matching_func=hungarian_matching):
+def get_tp_fp_fn(pred, probas, gt, dist_thresh):
     """Get the list of true positives, false positives and false negatives"""
     l_tp, l_fp, l_fn = [], [], []
     matching = []
     pred = pred.numpy()
-    if matching_func in globals():
-        matching_func = globals()[matching_func]
-    else:
-        print(f"Function {matching_func} is not define.")
 
     idx = np.argsort(probas.flatten())[::-1]
     pred = pred[idx]
 
-    row_ind, col_ind = matching_func(pred, gt, dist_thresh)
+    row_ind, col_ind = hungarian_matching(pred, gt, dist_thresh)
 
     for row_i, col_i in zip(row_ind, col_ind):
         if col_i == -1:
