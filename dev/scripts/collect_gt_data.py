@@ -9,7 +9,7 @@ import pandas as pd
 from tqdm import tqdm
 
 def main(gt_folder):
-    val_folder = '../../data_manual_annotations/images/val'
+    val_folder = '../../data_manual_annotations/images/train'
     # list all files in the folder if they end with .csv and if the basename is found in the val folder
     val_basenames = [os.path.basename(f).split('.')[0] for f in os.listdir(val_folder) if f.endswith('.jpg')]
     files = [f for f in os.listdir(gt_folder) if f.endswith('.csv') and os.path.basename(f).split('.')[0] in val_basenames]
@@ -30,7 +30,7 @@ def main(gt_folder):
             gt_data = np.append(gt_data, data, axis=0)
 
     # save the gt_data array as a csv file
-    np.savetxt('../gt_data.csv', gt_data, delimiter=',', header='basename,x_gt,y_gt', comments='', fmt='%d,%d,%d')
+    np.savetxt('../data/gt_data.csv', gt_data, delimiter=',', header='basename,x_gt,y_gt', comments='', fmt='%d,%d,%d')
     
 
 
