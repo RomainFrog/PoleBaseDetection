@@ -1,6 +1,7 @@
-import torch
 import numpy as np
+import torch
 from scipy.optimize import linear_sum_assignment
+
 
 def rescale_prediction(out_bbox, size):
     img_w, img_h = size
@@ -72,11 +73,14 @@ def nearest_neighbor_matching(pred, gt, thresh):
     return row_ind, col_ind
 
 
-def get_tp_fp_fn(pred, probas, gt, dist_thresh, logging = False):
+def get_tp_fp_fn(pred, probas, gt, dist_thresh, logging=False):
     """Get the list of true positives, false positives and false negatives"""
     l_tp, l_fp, l_fn = [], [], []
     matching = []
-    pred = pred.numpy()
+
+    # check if pred is a numpy array
+    if not isinstance(pred, np.ndarray):
+        pred = pred.numpy()
 
     idx = np.argsort(probas.flatten())[::-1]
     pred = pred[idx]
