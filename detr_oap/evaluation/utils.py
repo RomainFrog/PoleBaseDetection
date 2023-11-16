@@ -105,6 +105,39 @@ def get_tp_fp_fn(pred, probas, gt, dist_thresh, logging=False):
     return l_tp, l_fp, l_fn, matching
 
 
+def get_tp_fp_fn_opti(pred, probas, gt, dist_thresh, logging=False):
+    """Get the list of true positives, false positives and false negatives and the error"""
+    error_sum_x, error_sum_l1, error_sum_l2 = 0, 0, 0
+    tp, fp, fn = 0, 0, 0
+
+    idx = np.argsort(probas.flatten())[::-1]
+    pred = pred[idx]
+
+    row_ind, col_ind = hungarian_matching(pred, gt, dist_thresh)
+
+    for row_i, col_i in zip(row_ind, col_ind):
+        if col_i == -1:
+            fp += 1
+        elif np.linalg.norm(pred[row_i] - gt[col_i], ord=2) <= dist_thresh:
+            tp += 1
+            error_sum_x += abs(pred[row_i][0] - gt[col_i][0])
+            error_sum_l1 += np.linalg.norm(pred[row_i] - gt[col_i], ord=1)
+            error_sum_l2 += np.linalg.norm(pred[row_i] - gt[col_i], ord=2)
+        else:
+            fp += 1
+            fn += 1
+
+    for g_i in range(len(gt)):
+        if g_i not in col_ind:
+            fn += 1
+    if logging:
+        print(f"TP: {tp}, FP: {fp}, FN: {fn}")
+        print(
+            f"error_sum_x: {error_sum_x}, error_sum_l1: {error_sum_l1}, error_sum_l2: {error_sum_l2}"
+        )
+    return tp, fp, fn, error_sum_x, error_sum_l1, error_sum_l2
+
+
 def get_recall_precision(tp, fp, fn):
     """Compute the recall and precision"""
     if tp + fn == 0:

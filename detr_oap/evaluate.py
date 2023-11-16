@@ -70,6 +70,7 @@ def evaluate_val(model, dataloader, device, thresh):
     tab_probas_points_imgnb = np.empty((0, 4))
     tab_gt_imgnb = np.empty((0, 3))
 
+    i = 0
     print("Inference start...")
     for samples, targets in tqdm(dataloader):
         # /!\ targets is still in shape of bbox and we only need to keep
@@ -111,6 +112,9 @@ def evaluate_val(model, dataloader, device, thresh):
         tab_probas_points_imgnb = np.vstack(
             (tab_probas_points_imgnb, probas_points_imgnb)
         )
+        i += 1
+        if i == 5:
+            break
     print("Inference ended")
 
     probas_unique = np.unique(tab_probas_points_imgnb[:, 0])
@@ -138,7 +142,7 @@ def get_metrics_for_a_score(
     # get image ids from tab_probas_points_imgnb
     img_ids = np.unique(tab_probas_points_imgnb[:, -1])
 
-    tp, fp, fn = 0, 0, 0
+    total_tp, total_fp, total_fn = 0, 0, 0
     total_error_sum_x, total_error_sum_l1, total_error_sum_l2 = 0, 0, 0
 
     for img_id in img_ids:
@@ -151,12 +155,13 @@ def get_metrics_for_a_score(
         pred = probas_points_imgnb[:, 1:3]
         gt = gt_imgnb[:, :2]
 
-        l_tp, l_fp, l_fn, matching = get_tp_fp_fn(pred, probas, gt, dist_thresh)
-        tp += len(l_tp)
-        fp += len(l_fp)
-        fn += len(l_fn)
+        tp, fp, fn, error_sum_x, error_sum_l1, error_sum_l2 = get_tp_fp_fn_opti(
+            pred, probas, gt, dist_thresh
+        )
 
-        error_sum_x, error_sum_l1, error_sum_l2 = get_err_sum(matching)
+        total_tp += tp
+        total_fp += fp
+        total_fn += fn
         total_error_sum_x += error_sum_x
         total_error_sum_l1 += error_sum_l1
         total_error_sum_l2 += error_sum_l2
@@ -166,22 +171,22 @@ def get_metrics_for_a_score(
         MAE_l1 = np.inf
         MAE_l2 = np.inf
     else:
-        MAE_x = error_sum_x / tp
-        MAE_l1 = error_sum_l1 / tp
-        MAE_l2 = error_sum_l2 / tp
+        MAE_x = error_sum_x / total_tp
+        MAE_l1 = error_sum_l1 / total_tp
+        MAE_l2 = error_sum_l2 / total_tp
 
     # some fn could have been skipped because there was no pred for an image with gt
-    adjuste_fn = tab_gt_imgnb.shape[0] - (fn + tp)
-    fn += adjuste_fn
-    recall, precision = get_recall_precision(tp, fp, fn)
+    adjuste_fn = tab_gt_imgnb.shape[0] - (total_fn + total_tp)
+    total_fn += adjuste_fn
+    recall, precision = get_recall_precision(total_tp, total_fp, total_fn)
     tab = np.array(
         [
             proba,
             recall,
             precision,
-            tp,
-            fp,
-            fn,
+            total_tp,
+            total_fp,
+            total_fn,
             MAE_x,
             MAE_l1,
             MAE_l2,

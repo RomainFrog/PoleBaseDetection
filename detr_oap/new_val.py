@@ -210,4 +210,6 @@ if __name__ == "__main__":
 
     plot_AP_curve(tab_all_metrics)
 
+    print("Saving AP curve to {}...".format(args.logging_file))
     np.savetxt(args.logging_file, tab_all_metrics, delimiter=",", fmt="%.5f")
+    print("End saving AP curve to {}".format(args.logging_file))
