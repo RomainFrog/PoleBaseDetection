@@ -36,7 +36,7 @@ def evaluate(model, dataloader, device):
         outputs["pred_boxes"] = outputs["pred_boxes"].cpu()
 
         probas = outputs["pred_logits"].softmax(-1)[0, :, :-1]
-        keep = probas.max(-1).values > 0.99
+        keep = probas.max(-1).values > 0.5
 
         # Scale keypoints to the original image size
         points_scaled = rescale_prediction(outputs["pred_boxes"][0, keep], samples.size)
