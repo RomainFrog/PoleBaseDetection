@@ -29,7 +29,7 @@ compi_data_val_path=os.path.join(data_dir, compi_img_dir,"val")
 if bdd100k:
     bdd100k_data_train_path= os.path.join(data_dir, bdd_img_dir,"train")
     bdd100k_data_val_path=os.path.join(data_dir, bdd_img_dir,"val") 
-
+    print(bdd100k_data_train_path)
 # Init coco object
 coco_train = Coco()
 coco_val = Coco()
@@ -50,7 +50,7 @@ if bdd100k:
 for img_file in tqdm(compi_train_images):
     height, width = Image.open(img_file).size
     name_img = os.path.basename(img_file)
-    coco_image = CocoImage(file_name=f"train/{name_img}", height=height, width=width)
+    coco_image = CocoImage(file_name=f"images/train/{name_img}", height=height, width=width)
 
     with open(os.path.join(compi_labels_path, name_img[:-3] + "csv"), "r") as csvfile:
         reader = csv.DictReader(csvfile)
@@ -71,7 +71,7 @@ for img_file in tqdm(compi_train_images):
 for img_file in tqdm(compi_val_images):
     height, width = Image.open(img_file).size
     name_img = os.path.basename(img_file)
-    coco_image = CocoImage(file_name=f"val/{name_img}", height=height, width=width)
+    coco_image = CocoImage(file_name=f"images/val/{name_img}", height=height, width=width)
 
     with open(os.path.join(compi_labels_path, name_img[:-3] + "csv"), "r") as csvfile:
         reader = csv.DictReader(csvfile)
@@ -93,7 +93,8 @@ if bdd100k:
     for img_file in tqdm(bdd100k_train_images):
         height, width = Image.open(img_file).size
         name_img = os.path.basename(img_file)
-        coco_image = CocoImage(file_name=f"train/{name_img}", height=height, width=width)
+
+        coco_image = CocoImage(file_name=f"images_bdd100k/train/{name_img}", height=height, width=width)
 
         with open(os.path.join(bdd100k_labels,"train", name_img[:-3] + "csv"), "r") as csvfile:
             reader = csv.DictReader(csvfile)
