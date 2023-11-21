@@ -70,8 +70,6 @@ def evaluate_val(model, dataloader, device, thresh):
     tab_probas_points_imgnb = np.empty((0, 4))
     tab_gt_imgnb = np.empty((0, 3))
 
-    i = 0
-
     print("Inference start...")
     for samples, targets in tqdm(dataloader):
         # /!\ targets is still in shape of bbox and we only need to keep
@@ -113,9 +111,6 @@ def evaluate_val(model, dataloader, device, thresh):
         tab_probas_points_imgnb = np.vstack(
             (tab_probas_points_imgnb, probas_points_imgnb)
         )
-        i += 1
-        if i == 10:
-            break
     print("Inference ended")
 
     probas_unique = np.unique(tab_probas_points_imgnb[:, 0])
