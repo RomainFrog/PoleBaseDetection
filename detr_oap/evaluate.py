@@ -1,8 +1,7 @@
 import torch
-from tqdm import tqdm
-
 from datasets.pole import make_Pole_transforms
 from evaluation.utils import *
+from tqdm import tqdm
 
 """
 This file will be used to evaluate the model on the validation set
@@ -71,6 +70,8 @@ def evaluate_val(model, dataloader, device, thresh):
     tab_probas_points_imgnb = np.empty((0, 4))
     tab_gt_imgnb = np.empty((0, 3))
 
+    i = 0
+
     print("Inference start...")
     for samples, targets in tqdm(dataloader):
         # /!\ targets is still in shape of bbox and we only need to keep
@@ -112,6 +113,9 @@ def evaluate_val(model, dataloader, device, thresh):
         tab_probas_points_imgnb = np.vstack(
             (tab_probas_points_imgnb, probas_points_imgnb)
         )
+        i += 1
+        if i == 10:
+            break
     print("Inference ended")
 
     probas_unique = np.unique(tab_probas_points_imgnb[:, 0])
@@ -163,14 +167,14 @@ def get_metrics_for_a_score(
         total_error_sum_l1 += error_sum_l1
         total_error_sum_l2 += error_sum_l2
 
-    if tp == 0:
+    if total_tp == 0:
         MAE_x = np.inf
         MAE_l1 = np.inf
         MAE_l2 = np.inf
     else:
-        MAE_x = error_sum_x / total_tp
-        MAE_l1 = error_sum_l1 / total_tp
-        MAE_l2 = error_sum_l2 / total_tp
+        MAE_x = total_error_sum_x / total_tp
+        MAE_l1 = total_error_sum_l1 / total_tp
+        MAE_l2 = total_error_sum_l2 / total_tp
 
     # some fn could have been skipped because there was no pred for an image with gt
     adjuste_fn = tab_gt_imgnb.shape[0] - (total_fn + total_tp)

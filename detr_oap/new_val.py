@@ -13,15 +13,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sklearn
 import torch
+from PIL import Image
+from scipy.optimize import linear_sum_assignment
+from sklearn.metrics import auc
+from tqdm import tqdm
+
 import util.misc as utils
 from datasets.pole import PoleDetection, make_Pole_transforms
 from evaluate import evaluate_val
 from evaluation.utils import *
 from models import build_model
-from PIL import Image
-from scipy.optimize import linear_sum_assignment
-from sklearn.metrics import auc
-from tqdm import tqdm
 
 
 def get_args_parser():
@@ -211,5 +212,18 @@ if __name__ == "__main__":
     plot_AP_curve(tab_all_metrics)
 
     print("Saving AP curve to {}...".format(args.logging_file))
-    np.savetxt(args.logging_file, tab_all_metrics, delimiter=",", fmt="%.5f")
+    headers = [
+        "proba",
+        "recall",
+        "precision",
+        "total_tp",
+        "total_fp",
+        "total_fn",
+        "MAE_x",
+        "MAE_l1",
+        "MAE_l2",
+    ]
+    tab_all_metrics_with_headers = np.vstack([headers, tab_all_metrics])
+
+    np.savetxt(args.logging_file, tab_all_metrics_with_headers, delimiter=",", fmt="%s")
     print("End saving AP curve to {}".format(args.logging_file))
