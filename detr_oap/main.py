@@ -141,7 +141,7 @@ def main(args):
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.lr_drop)
 
     dataset_train = build_dataset(image_set='train', args=args)
-    dataset_val = PoleDetection(args.data_path + "/images", args.data_path + "/val.json", transforms=None, return_masks=args.masks)
+    dataset_val = PoleDetection(args.data_path, args.data_path + "/val.json", transforms=None, return_masks=args.masks)
 
     if args.distributed:
         sampler_train = DistributedSampler(dataset_train)
