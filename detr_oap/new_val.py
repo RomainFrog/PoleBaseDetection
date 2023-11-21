@@ -13,16 +13,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sklearn
 import torch
-from PIL import Image
-from scipy.optimize import linear_sum_assignment
-from sklearn.metrics import auc
-from tqdm import tqdm
-
 import util.misc as utils
 from datasets.pole import PoleDetection, make_Pole_transforms
 from evaluate import evaluate_val
 from evaluation.utils import *
 from models import build_model
+from PIL import Image
+from scipy.optimize import linear_sum_assignment
+from sklearn.metrics import auc
+from tqdm import tqdm
 
 
 def get_args_parser():
@@ -173,17 +172,6 @@ def get_args_parser():
     return parser
 
 
-def plot_AP_curve(tab):
-    fig, ax = plt.subplots()
-    ax.plot(tab[:, 1], tab[:, 2])
-    ax.set_xlim(0, 1)
-    ax.set_ylim(0, 1)
-    ax.set_xlabel("Recall")
-    ax.set_ylabel("Precision")
-    ax.set_title("AP curve")
-    plt.show()
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         "DETR training and evaluation script", parents=[get_args_parser()]
@@ -208,8 +196,6 @@ if __name__ == "__main__":
     )
 
     tab_all_metrics = evaluate_val(model, val_dataset, device, args.thresh)
-
-    plot_AP_curve(tab_all_metrics)
 
     print("Saving AP curve to {}...".format(args.logging_file))
     headers = [
