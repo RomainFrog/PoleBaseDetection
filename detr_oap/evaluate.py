@@ -36,7 +36,7 @@ def evaluate(model, dataloader, device, thresh_score, thresh_dist):
         outputs["pred_boxes"] = outputs["pred_boxes"].cpu()
 
         probas = outputs["pred_logits"].softmax(-1)[0, :, :-1]
-        keep = probas.max(-1).values > thresh_score
+        keep = probas.max(-1).values >= thresh_score
 
         # Scale keypoints to the original image size
         points_scaled = rescale_prediction(outputs["pred_boxes"][0, keep], samples.size)

@@ -8,7 +8,7 @@ from models import build_model
 
 """
 python test_eval.py --data_path ../data_manual_annotations --resume benchmark/detr_oap_300_epochs_r101_no_depth_loss_eos050_final_dataset/checkpoint.pth \
-    --num_queries 50 --dilation --backbone resnet101
+    --num_queries 50 --backbone resnet101
 """
 
 
@@ -187,9 +187,9 @@ if __name__ == "__main__":
     # add metrics (dict) to file with name args.logging_file
     with open(args.logging_file, "a") as f:
         f.write(
-            "for the model:"
+            "for the model in: "
             + args.resume
-            + "with a score threshold at"
+            + " with a score threshold at "
             + str(args.thresh_score)
             + "\n"
             + str(metrics)
