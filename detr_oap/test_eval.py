@@ -1,8 +1,10 @@
 import argparse
+
 import torch
-from models import build_model
-from evaluate import evaluate
+
 from datasets.pole import PoleDetection
+from evaluate import evaluate
+from models import build_model
 
 """
 python test_eval.py --data_path ../data_manual_annotations --resume benchmark/detr_oap_300_epochs_r101_no_depth_loss_eos050_final_dataset/checkpoint.pth \
@@ -51,10 +53,16 @@ def get_args_parser():
 
     # * Transformer
     parser.add_argument(
-        "--enc_layers", default=6, type=int, help="Number of encoding layers in the transformer"
+        "--enc_layers",
+        default=6,
+        type=int,
+        help="Number of encoding layers in the transformer",
     )
     parser.add_argument(
-        "--dec_layers", default=6, type=int, help="Number of decoding layers in the transformer"
+        "--dec_layers",
+        default=6,
+        type=int,
+        help="Number of decoding layers in the transformer",
     )
     parser.add_argument(
         "--dim_feedforward",
@@ -77,12 +85,16 @@ def get_args_parser():
         type=int,
         help="Number of attention heads inside the transformer's attentions",
     )
-    parser.add_argument("--num_queries", default=20, type=int, help="Number of query slots")
+    parser.add_argument(
+        "--num_queries", default=20, type=int, help="Number of query slots"
+    )
     parser.add_argument("--pre_norm", action="store_true")
 
     # * Segmentation
     parser.add_argument(
-        "--masks", action="store_true", help="Train segmentation head if the flag is provided"
+        "--masks",
+        action="store_true",
+        help="Train segmentation head if the flag is provided",
     )
 
     # # Loss
@@ -94,13 +106,22 @@ def get_args_parser():
     )
     # * Matcher
     parser.add_argument(
-        "--set_cost_class", default=1, type=float, help="Class coefficient in the matching cost"
+        "--set_cost_class",
+        default=1,
+        type=float,
+        help="Class coefficient in the matching cost",
     )
     parser.add_argument(
-        "--set_cost_dist", default=5, type=float, help="L1 box coefficient in the matching cost"
+        "--set_cost_dist",
+        default=5,
+        type=float,
+        help="L1 box coefficient in the matching cost",
     )
     parser.add_argument(
-        "--set_cost_giou", default=2, type=float, help="giou box coefficient in the matching cost"
+        "--set_cost_giou",
+        default=2,
+        type=float,
+        help="giou box coefficient in the matching cost",
     )
     # * Loss coefficients
     parser.add_argument("--mask_loss_coef", default=1, type=float)
@@ -121,20 +142,22 @@ def get_args_parser():
     parser.add_argument("--remove_difficult", action="store_true")
 
     parser.add_argument(
-        "--output_dir", default="", help="path where to save the results, empty for no saving"
+        "--output_dir",
+        default="",
+        help="path where to save the results, empty for no saving",
     )
-    parser.add_argument("--device", default="cuda", help="device to use for training / testing")
+    parser.add_argument(
+        "--device", default="cuda", help="device to use for training / testing"
+    )
     parser.add_argument("--resume", default="", help="resume from checkpoint")
 
-    parser.add_argument("--thresh", default=1e-10, type=float)
-    parser.add_argument("--thresh_dist", default=20, type=float)
+    parser.add_argument("--thresh_score", default=0.5, type=float)
+    parser.add_argument("--thresh_dist", default=10, type=float)
     parser.add_argument("--matching_method", default="hungarian_matching", type=str)
     parser.add_argument("--show", default=False, type=bool)
     parser.add_argument("--logging_file", default="val_log.txt", type=str)
 
     return parser
-
-
 
 
 if __name__ == "__main__":
@@ -154,13 +177,13 @@ if __name__ == "__main__":
     # create PoleDataset
     dataset_folder = args.data_path
     val_dataset = PoleDetection(
-        dataset_folder + "/images", dataset_folder + "/val.json", transforms=None, 
-        return_masks=args.masks)
+        dataset_folder + "/images",
+        dataset_folder + "/val.json",
+        transforms=None,
+        return_masks=args.masks,
+    )
 
-    for _ in range(2):
-        metrics = evaluate(model, val_dataset, device)
-        # add metrics (dict) to file with name args.logging_file
-        with open(args.logging_file, "a") as f:
-            f.write(str(metrics) + "\n")
-
- 
+    metrics = evaluate(model, val_dataset, device, args.thresh_score, args.thresh_dist)
+    # add metrics (dict) to file with name args.logging_file
+    with open(args.logging_file, "r") as f:
+        f.write(str(metrics) + "\n")

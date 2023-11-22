@@ -11,7 +11,7 @@ during training. It will be called after each epoch.
 
 
 @torch.no_grad()
-def evaluate(model, dataloader, device):
+def evaluate(model, dataloader, device, thresh_score, thresh_dist):
     total_tp, total_fp, total_fn = 0, 0, 0
     n_pairwise_matches = 0
     error_sum_x = 0
@@ -36,14 +36,16 @@ def evaluate(model, dataloader, device):
         outputs["pred_boxes"] = outputs["pred_boxes"].cpu()
 
         probas = outputs["pred_logits"].softmax(-1)[0, :, :-1]
-        keep = probas.max(-1).values > 0.5
+        keep = probas.max(-1).values > thresh_score
 
         # Scale keypoints to the original image size
         points_scaled = rescale_prediction(outputs["pred_boxes"][0, keep], samples.size)
         probas = probas[keep].cpu().data.numpy()
 
         gt_data = targets["boxes"].cpu().data.numpy()[:, :2]
-        l_tp, l_fp, l_fn, matching = get_tp_fp_fn(points_scaled, probas, gt_data, 10)
+        l_tp, l_fp, l_fn, matching = get_tp_fp_fn(
+            points_scaled, probas, gt_data, thresh_dist
+        )
 
         n_pairwise_matches += len(matching)
         err_x, _, _ = get_err_sum(matching)
