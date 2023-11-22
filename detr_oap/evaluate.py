@@ -1,7 +1,8 @@
 import torch
+from tqdm import tqdm
+
 from datasets.pole import make_Pole_transforms
 from evaluation.utils import *
-from tqdm import tqdm
 
 """
 This file will be used to evaluate the model on the validation set
@@ -17,7 +18,7 @@ def evaluate(model, dataloader, device):
 
     model.eval()
 
-    for samples, targets in dataloader:
+    for samples, targets in tqdm(dataloader):
         # /!\ targets is still in shape of bbox and we only need to keep
         # the first two coordinates (x, y)$
         w, h = samples.size
