@@ -186,4 +186,12 @@ if __name__ == "__main__":
     metrics = evaluate(model, val_dataset, device, args.thresh_score, args.thresh_dist)
     # add metrics (dict) to file with name args.logging_file
     with open(args.logging_file, "a") as f:
-        f.write("for the model:" + args.resume + "\n" + str(metrics) + "\n")
+        f.write(
+            "for the model:"
+            + args.resume
+            + "with a score threshold at"
+            + str(args.thresh_score)
+            + "\n"
+            + str(metrics)
+            + "\n"
+        )
