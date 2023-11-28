@@ -12,6 +12,8 @@ from tqdm import tqdm
 parser = argparse.ArgumentParser()
 parser.add_argument("--data_dir", default="data_manual_annotations", help="data directory")
 parser.add_argument("--annotation_dir", default="final_dataset", help="annotation directory")
+parser.add_argument("--output_dir", default="datasets/default_dataset", help="output dataset directory")
+parser.add_argument("--size", default=200, help="size of the bounding box")
 parser.add_argument("--bdd100k", action="store_true", help="use bdd100k dataset")
 parser.add_argument("--bdd100k_val", action="store_true", help="use bdd100k validation dataset")
 args = parser.parse_args()
@@ -21,6 +23,8 @@ bdd100k = args.bdd100k
 bdd100k_val = args.bdd100k_val
 compi_labels = args.annotation_dir
 bdd100k_labels = os.path.join(data_dir, "annotations_bdd100k")
+size = int(args.size)
+output_dir = args.output_dir
 
 compi_img_dir = "images"
 bdd_img_dir = "images_bdd100k"
@@ -67,8 +71,10 @@ for img_file in tqdm(compi_train_images):
         for row in reader:
             x = int(float(row["x"]))
             y = int(float(row["y"]))
+            xtl = max(0, x - size // 2)
+            ytl = max(0, y - size // 2)
             coco_image.add_annotation(
-                CocoAnnotation(bbox=[x, y, 1, 1], category_id=0, category_name="pole")
+                CocoAnnotation(bbox=[xtl, ytl, size, size], category_id=0, category_name="pole")
             )
         coco_train.add_image(coco_image)
 
@@ -91,8 +97,10 @@ if bdd100k:
             for row in reader:
                 x = int(float(row["x"]))
                 y = int(float(row["y"]))
+                xtl = max(0, x - size // 2)
+                ytl = max(0, y - size // 2)
                 coco_image.add_annotation(
-                    CocoAnnotation(bbox=[x, y, 1, 1], category_id=0, category_name="pole")
+                    CocoAnnotation(bbox=[xtl, ytl, size, size], category_id=0, category_name="pole")
                 )
             coco_train.add_image(coco_image)
 
@@ -115,8 +123,10 @@ if not bdd100k_val:
             for row in reader:
                 x = int(float(row["x"]))
                 y = int(float(row["y"]))
+                xtl = max(0, x - size // 2)
+                ytl = max(0, y - size // 2)
                 coco_image.add_annotation(
-                    CocoAnnotation(bbox=[x, y, 1, 1], category_id=0, category_name="pole")
+                    CocoAnnotation(bbox=[xtl, ytl, size, size], category_id=0, category_name="pole")
                 )
             coco_val.add_image(coco_image)
 
@@ -138,11 +148,15 @@ else:
             for row in reader:
                 x = int(float(row["x"]))
                 y = int(float(row["y"]))
+                xtl = max(0, x - size // 2)
+                ytl = max(0, y - size // 2)
                 coco_image.add_annotation(
-                    CocoAnnotation(bbox=[x, y, 1, 1], category_id=0, category_name="pole")
+                    CocoAnnotation(bbox=[xtl, ytl, size, size], category_id=0, category_name="pole")
                 )
             coco_val.add_image(coco_image)
 
 
-save_json(data=coco_train.json, save_path="data_manual_annotations/train.json")
-save_json(data=coco_val.json, save_path="data_manual_annotations/val.json")
+coco_train_path= os.path.join(output_dir, "train.json")
+coco_val_path= os.path.join(output_dir, "val.json")
+save_json(data=coco_train.json, save_path=coco_train_path)
+save_json(data=coco_val.json, save_path=coco_val_path)
