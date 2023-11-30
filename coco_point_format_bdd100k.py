@@ -91,8 +91,8 @@ if bdd100k:
                 pass
 
             for row in reader:
-                x = int(float(row["x"]) * width)
-                y = int(float(row["y"]) * height)
+                x = int(float(row["x"]) * height)
+                y = int(float(row["y"]) * width)
                 coco_image.add_annotation(
                     CocoAnnotation(bbox=[x, y, 1, 1], category_id=0, category_name="pole")
                 )
@@ -137,8 +137,8 @@ else:
                 pass
 
             for row in reader:
-                x = int(float(row["x"]) * width)
-                y = int(float(row["y"]) * height)
+                x = int(float(row["x"]) * height)
+                y = int(float(row["y"]) * width)
                 coco_image.add_annotation(
                     CocoAnnotation(bbox=[x, y, 1, 1], category_id=0, category_name="pole")
                 )

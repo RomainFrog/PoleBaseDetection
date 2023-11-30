@@ -9,14 +9,13 @@ from typing import Iterable
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
-import torch
 from PIL import Image
 
-from detr.datasets.pole import PoleDetection
+from datasets.pole import PoleDetection
 
 # Load dataset
-img_dir = "data_manual_annotations/images"
-ann_dir = "data_manual_annotations/train.json"
+img_dir = "data_manual_annotations"
+ann_dir = "datasets/default_bdd100k_val/val.json"
 
 dataset = PoleDetection(img_dir, ann_dir, transforms=None, return_masks=False)
 
@@ -31,6 +30,7 @@ for i in range(len(dataset)):
 
     # display bounding boxes on top of the image
     for box in target["boxes"]:
+        print(target['boxes'])
         x1, y1, x2, y2 = box
         x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
         print(x1, y1, x2, y2)
