@@ -48,7 +48,6 @@ if bdd100k:
     bdd100k_train_images = glob.glob(os.path.join(bdd100k_data_train_path, "*.jpg"))
 if bdd100k_val:
     bdd100k_val_images = glob.glob(os.path.join(bdd100k_data_val_path, "*.jpg"))
-    print(bdd100k_val_images)
 
 # Loop through each image file and append its data to the merged_data DataFrame
 for img_file in tqdm(compi_train_images):
@@ -80,7 +79,7 @@ if bdd100k:
 
         coco_image = CocoImage(file_name=f"images_bdd100k/train/{name_img}", height=height, width=width)
 
-        with open(os.path.join(bdd100k_labels,"train", name_img[:-3] + "csv"), "r") as csvfile:
+        with open(os.path.join(bdd100k_labels,"train", name_img[:-3] + "txt"), "r") as csvfile:
             reader = csv.DictReader(csvfile)
 
             try:
@@ -89,8 +88,8 @@ if bdd100k:
                 pass
 
             for row in reader:
-                x = int(float(row["x"]))
-                y = int(float(row["y"]))
+                x = int(float(row["x"]) * width)
+                y = int(float(row["y"]) * height)
                 coco_image.add_annotation(
                     CocoAnnotation(bbox=[x, y, 1, 1], category_id=0, category_name="pole")
                 )
@@ -124,10 +123,9 @@ else:
     for img_file in tqdm(bdd100k_val_images):
         height, width = Image.open(img_file).size
         name_img = os.path.basename(img_file)
-        print(name_img)
         coco_image = CocoImage(file_name=f"images_bdd100k/val/{name_img}", height=height, width=width)
 
-        with open(os.path.join(bdd100k_labels, "valid", name_img[:-3] + "csv"), "r") as csvfile:
+        with open(os.path.join(bdd100k_labels, "valid", name_img[:-3] + "txt"), "r") as csvfile:
             reader = csv.DictReader(csvfile)
 
             try:
@@ -136,8 +134,8 @@ else:
                 pass
 
             for row in reader:
-                x = int(float(row["x"]))
-                y = int(float(row["y"]))
+                x = int(float(row["x"]) * width)
+                y = int(float(row["y"]) * height)
                 coco_image.add_annotation(
                     CocoAnnotation(bbox=[x, y, 1, 1], category_id=0, category_name="pole")
                 )
