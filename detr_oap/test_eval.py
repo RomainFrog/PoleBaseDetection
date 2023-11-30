@@ -177,8 +177,8 @@ if __name__ == "__main__":
     # create PoleDataset
     dataset_folder = args.data_path
     val_dataset = PoleDetection(
-        dataset_folder + "/images",
-        dataset_folder + "/val.json",
+        "../data_manual_annotations/",
+        "../datasets/default_bdd100k_val/val.json",
         transforms=None,
         return_masks=args.masks,
     )

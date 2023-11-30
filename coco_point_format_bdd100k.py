@@ -126,7 +126,7 @@ else:
     for img_file in tqdm(bdd100k_val_images):
         height, width = Image.open(img_file).size
         name_img = os.path.basename(img_file)
-        coco_image = CocoImage(file_name=f"images_bdd100k/val/{name_img}", height=height, width=width)
+        coco_image = CocoImage(file_name=f"images_bdd100k/valid/{name_img}", height=height, width=width)
 
         with open(os.path.join(bdd100k_labels, "valid", name_img[:-3] + "txt"), "r") as csvfile:
             reader = csv.DictReader(csvfile)
@@ -145,5 +145,5 @@ else:
             coco_val.add_image(coco_image)
 
 
-save_json(data=coco_train.json, save_path=f"data_manual_annotations/{dataset_name}/train.json")
-save_json(data=coco_val.json, save_path=f"data_manual_annotations/{dataset_name}/val.json")
+save_json(data=coco_train.json, save_path=f"datasets/{dataset_name}/train.json")
+save_json(data=coco_val.json, save_path=f"datasets/{dataset_name}/val.json")
