@@ -7,6 +7,7 @@ from PIL import Image
 from sahi.utils.coco import Coco, CocoAnnotation, CocoCategory, CocoImage
 from sahi.utils.file import save_json
 import argparse
+import uuid
 from tqdm import tqdm
 
 parser = argparse.ArgumentParser()
@@ -14,9 +15,11 @@ parser.add_argument("--data_dir", default="data_manual_annotations", help="data 
 parser.add_argument("--annotation_dir", default="final_dataset", help="annotation directory")
 parser.add_argument("--bdd100k", action="store_true", help="use bdd100k dataset")
 parser.add_argument("--bdd100k_val", action="store_true", help="use bdd100k validation dataset")
+parser.add_argument("--dataset_name", default=uuid.uuid4().hex, help="dataset name")
 args = parser.parse_args()
 
 data_dir = args.data_dir
+dataset_name = args.dataset_name
 bdd100k = args.bdd100k
 bdd100k_val = args.bdd100k_val
 compi_labels = args.annotation_dir
@@ -142,5 +145,5 @@ else:
             coco_val.add_image(coco_image)
 
 
-save_json(data=coco_train.json, save_path="data_manual_annotations/train.json")
-save_json(data=coco_val.json, save_path="data_manual_annotations/val.json")
+save_json(data=coco_train.json, save_path=f"data_manual_annotations/{dataset_name}/train.json")
+save_json(data=coco_val.json, save_path=f"data_manual_annotations/{dataset_name}/val.json")
