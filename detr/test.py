@@ -256,7 +256,6 @@ def infer(images_path, model, postprocessors, device, dataset):
 
         gt_data = target['boxes']
         bboxes_scaled = rescale_bboxes(outputs['pred_boxes'][0, keep], (w,h))
-        print(bboxes_scaled.shape)
         bboxes_scaled = torch.tensor([dummy_rescale_bboxes(bbox, args.size) for bbox in bboxes_scaled])
         probas = probas[keep].cpu().data.numpy()
 
@@ -344,6 +343,6 @@ if __name__ == "__main__":
 
     # Create PoleDataset
     dataset_folder = args.data_path
-    dataset_test = PoleDetection(dataset_folder + "/images", dataset_folder + "/val.json",transforms=None, return_masks=args.masks)
+    dataset_test = PoleDetection("../data_manual_annotations", dataset_folder + "/val.json",transforms=None, return_masks=args.masks)
 
     infer(image_paths, model, postprocessors, device, dataset_test)

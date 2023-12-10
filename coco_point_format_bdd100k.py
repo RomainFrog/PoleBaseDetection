@@ -34,7 +34,7 @@ compi_data_val_path=os.path.join(data_dir, compi_img_dir,"val")
 if bdd100k:
     bdd100k_data_train_path= os.path.join(data_dir, bdd_img_dir,"train")
 if bdd100k_val:
-    bdd100k_data_val_path=os.path.join(data_dir, bdd_img_dir,"valid") 
+    bdd100k_data_val_path=os.path.join(data_dir, bdd_img_dir,"val") 
 
 # Init coco object
 coco_train = Coco()
@@ -126,9 +126,9 @@ else:
     for img_file in tqdm(bdd100k_val_images):
         height, width = Image.open(img_file).size
         name_img = os.path.basename(img_file)
-        coco_image = CocoImage(file_name=f"images_bdd100k/valid/{name_img}", height=height, width=width)
+        coco_image = CocoImage(file_name=f"images_bdd100k/val/{name_img}", height=height, width=width)
 
-        with open(os.path.join(bdd100k_labels, "valid", name_img[:-3] + "txt"), "r") as csvfile:
+        with open(os.path.join(bdd100k_labels, "val", name_img[:-3] + "txt"), "r") as csvfile:
             reader = csv.DictReader(csvfile)
 
             try:

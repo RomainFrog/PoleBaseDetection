@@ -151,8 +151,8 @@ def get_args_parser():
     )
     parser.add_argument("--resume", default="", help="resume from checkpoint")
 
-    parser.add_argument("--thresh_score", default=0.5, type=float)
-    parser.add_argument("--thresh_dist", default=10, type=float)
+    parser.add_argument("--thresh_score", default=0.7, type=float)
+    parser.add_argument("--thresh_dist", default=20, type=float)
     parser.add_argument("--matching_method", default="hungarian_matching", type=str)
     parser.add_argument("--show", default=False, type=bool)
     parser.add_argument("--logging_file", default="val_log.txt", type=str)
@@ -178,7 +178,7 @@ if __name__ == "__main__":
     dataset_folder = args.data_path
     val_dataset = PoleDetection(
         "../data_manual_annotations/",
-        "../datasets/default_bdd100k_val/val.json",
+        dataset_folder + "/val.json",
         transforms=None,
         return_masks=args.masks,
     )
@@ -191,6 +191,8 @@ if __name__ == "__main__":
             + args.resume
             + " with a score threshold at "
             + str(args.thresh_score)
+            + " and a distance threshold at "
+            + str(args.thresh_dist)
             + "\n"
             + str(metrics)
             + "\n"
