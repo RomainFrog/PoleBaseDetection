@@ -12,7 +12,6 @@ import uuid
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--data_dir", default="data_manual_annotations", help="data directory")
-parser.add_argument("--output_dir", default="datasets", help="output dataset directory")
 parser.add_argument("--output_name", default="val", help="output json name")
 parser.add_argument("--size", default=50, help="size of the bounding box")
 args = parser.parse_args()
@@ -21,7 +20,7 @@ args = parser.parse_args()
 
 data_dir = args.data_dir
 size = int(args.size)
-output_dir = args.output_dir
+output_dir = args.data_dir
 images = glob.glob(os.path.join(data_dir, 'images', "*.jpg"))
 
 coco_set = Coco()
